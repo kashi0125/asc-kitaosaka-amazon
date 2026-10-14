@@ -35,11 +35,14 @@ h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
 .status.err{background:var(--warn-soft);color:var(--danger)}
 .datebar{max-width:728px;margin:8px auto 0;display:flex;gap:6px;align-items:center}
 .datebar input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:0}
+.halfseg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);flex:none}
+.halfseg button{border:0;background:transparent;padding:8px 10px;cursor:pointer;color:var(--sub)}
+.halfseg button.on{background:var(--accent);color:#fff;font-weight:600}
 .iconbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;cursor:pointer}
 .tabs{max-width:728px;margin:10px auto 0;display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
 .tabs button{flex:1;border:0;background:none;padding:8px 4px;border-radius:9px;cursor:pointer;font-size:14px;color:var(--sub)}
 .tabs button.on{background:var(--accent);color:#fff;font-weight:600}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
 .stat b{display:block;font-size:20px}
 .stat span{font-size:11px;color:var(--sub)}
@@ -63,11 +66,12 @@ textarea.inp{min-height:110px;resize:vertical}
 .toggle{flex:1;border:1px solid var(--line);background:transparent;border-radius:10px;padding:8px 6px;cursor:pointer;font-size:13px;min-width:0}
 .toggle.on{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:600}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:1}
-.seg button{flex:1;border:0;background:transparent;padding:8px 2px;cursor:pointer;font-size:13px}
+.seg button{flex:1;border:0;background:transparent;padding:6px 2px;min-height:44px;cursor:pointer;font-size:13px;line-height:1.25}
 .seg button+button{border-left:1px solid var(--line)}
 .seg .s0{background:var(--line);font-weight:600}
 .seg .s1{background:var(--mid-soft);color:var(--mid);font-weight:600}
-.seg .s2{background:var(--done-soft);color:var(--done);font-weight:600}
+.seg .s2{background:var(--warn-soft);color:var(--warn);font-weight:600}
+.seg .s3{background:var(--done-soft);color:var(--done);font-weight:600}
 .tel{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:var(--accent);color:#fff;text-decoration:none;font-size:18px;flex:none}
 .tel.off{background:var(--line);pointer-events:none}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;border:0;background:var(--accent);color:#fff;padding:12px 20px;border-radius:99px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.18);cursor:pointer}
@@ -106,7 +110,10 @@ const FLOORS = [
     { id: "new-2F", bldg: "新", floor: "2F" },
 ];
 const BLDGS = [{ id: "east", name: "東" }, { id: "new", name: "新" }];
-const LOAD_STATES = ["未", "積込中", "完了"];
+const LOAD_STATES = ["未", "積込中", "積込後 残あり", "積込後 残なし"];
+const LOADED = ["積込後 残なし"]; // 「積込完了フロア」に数える状態
+const HALVES = [{ id: "am", name: "前半" }, { id: "pm", name: "後半" }];
+const SWITCH_HOUR = 14; // この時刻（時）以降に開くと最初から「後半」を表示
 const USE_FIREBASE = !!FIREBASE_CONFIG.apiKey;
 let db = null, auth = null;
 if (USE_FIREBASE) {
@@ -150,6 +157,13 @@ function nest(path, val) {
 const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const today = () => new Date().toLocaleDateString("sv-SE");
 const shift = (d, n) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toLocaleDateString("sv-SE"); };
+const curHalf = () => new Date().getHours() < SWITCH_HOUR ? "am" : "pm";
+const halfName = h => (HALVES.find(x => x.id === h) || {}).name || h;
+function stepSlot(date, half, dir) {
+    if (dir > 0)
+        return half === "am" ? [date, "pm"] : [shift(date, 1), "am"];
+    return half === "pm" ? [date, "am"] : [shift(date, -1), "pm"];
+}
 const nowHM = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 function useDay(date, user) {
     const [data, setData] = useState(null);
@@ -273,7 +287,9 @@ function Warehouse({ data, patch }) {
                         "\u56DE\u76EE ",
                         fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"))),
                     React.createElement("span", { className: "lbl" }, "\u7A4D\u8FBC\u72B6\u6CC1"),
-                    React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => patch(`${base}.loading`, s) }, s))));
+                    React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => patch(`${base}.loading`, s) }, s.split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
+                        j > 0 && React.createElement("br", null),
+                        w))))));
             }))),
         React.createElement("div", { className: "sec" }, "\u9023\u7D61\u4E8B\u9805"),
         React.createElement("div", { className: "card" },
@@ -297,8 +313,8 @@ function Staff({ data, patch }) {
                     React.createElement("a", { className: "tel" + (tel ? "" : " off"), href: tel ? "tel:" + tel : undefined, "aria-label": "\u96FB\u8A71" }, "\uD83D\uDCDE")));
         }));
 }
-function reportText(date, d) {
-    const L = [`【北大阪アマゾン発送状況】${date.replace(/-/g, "/")}`, "", "■トラック"];
+function reportText(date, half, d) {
+    const L = [`【北大阪アマゾン発送状況】${date.replace(/-/g, "/")} ${halfName(half)}`, "", "■トラック"];
     TRUCKS.forEach(t => { const x = d.trucks[t]; if (x.plate || x.maxT || x.load)
         L.push(`${MARK[t] || t} ${x.plate || "-"} / ${x.maxT || "-"}t / 積載${x.load === "" ? "-" : x.load + "%"}`); });
     L.push("", "■倉庫");
@@ -312,6 +328,9 @@ function reportText(date, d) {
 }
 function Board({ user }) {
     const [date, setDate] = useState(today());
+    const [half, setHalf] = useState(curHalf());
+    const go = dir => { const [d, h] = stepSlot(date, half, dir); setDate(d); setHalf(h); };
+    const isNow = date === today() && half === curHalf();
     const [tab, setTab] = useState(() => { try {
         return localStorage.getItem("asc-ship-tab") || "wh";
     }
@@ -319,7 +338,7 @@ function Board({ user }) {
         return "wh";
     } });
     const [toast, setToast] = useState("");
-    const { data, patch, status } = useDay(date, user);
+    const { data, patch, status } = useDay(`${date}_${half}`, user);
     useEffect(() => { try {
         localStorage.setItem("asc-ship-tab", tab);
     }
@@ -328,14 +347,14 @@ function Board({ user }) {
         if (!data)
             return null;
         const pallets = FLOORS.reduce((s, f) => s + num(data.floors[f.id].pallets), 0);
-        const done = FLOORS.filter(f => data.floors[f.id].loading === "完了").length;
+        const done = FLOORS.filter(f => data.floors[f.id].loading !== undefined && LOADED.includes(data.floors[f.id].loading)).length;
         const loads = TRUCKS.map(t => data.trucks[t].load).filter(v => v !== "").map(num);
         const avg = loads.length ? Math.round(loads.reduce((a, b) => a + b, 0) / loads.length) : null;
         return { pallets, done, avg };
     }, [data]);
     const copy = async () => {
         try {
-            await navigator.clipboard.writeText(reportText(date, data));
+            await navigator.clipboard.writeText(reportText(date, half, data));
             setToast("報告文をコピーしました");
         }
         catch {
@@ -349,10 +368,17 @@ function Board({ user }) {
                 React.createElement("h1", null, "\u5317\u5927\u962A\u30A2\u30DE\u30BE\u30F3 \u767A\u9001\u72B6\u6CC1"),
                 React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status)),
             React.createElement("div", { className: "datebar" },
-                React.createElement("button", { className: "iconbtn", onClick: () => setDate(shift(date, -1)) }, "\u2039"),
+                React.createElement("button", { className: "iconbtn", "aria-label": "\u524D\u3078", onClick: () => go(-1) }, "\u2039"),
                 React.createElement("input", { type: "date", value: date, onChange: e => e.target.value && setDate(e.target.value) }),
-                React.createElement("button", { className: "iconbtn", onClick: () => setDate(shift(date, 1)) }, "\u203A"),
-                date !== today() && React.createElement("button", { className: "iconbtn", onClick: () => setDate(today()) }, "\u4ECA\u65E5")),
+                React.createElement("div", { className: "halfseg" }, HALVES.map(h => React.createElement("button", { key: h.id, className: half === h.id ? "on" : "", onClick: () => setHalf(h.id) }, h.name))),
+                React.createElement("button", { className: "iconbtn", "aria-label": "\u6B21\u3078", onClick: () => go(1) }, "\u203A")),
+            !isNow && React.createElement("div", { className: "datebar" },
+                React.createElement("button", { className: "iconbtn", style: { flex: 1, padding: "6px", fontSize: 13 }, onClick: () => { setDate(today()); setHalf(curHalf()); } },
+                    "\u3044\u307E\u306E\u8A18\u9332\uFF08",
+                    today().slice(5).replace("-", "/"),
+                    " ",
+                    halfName(curHalf()),
+                    "\uFF09\u306B\u623B\u308B")),
             React.createElement("div", { className: "tabs" }, [["wh", "倉庫"], ["tr", "トラック"], ["st", "端末入力員"]].map(([k, l]) => React.createElement("button", { key: k, className: tab === k ? "on" : "", onClick: () => setTab(k) }, l)))),
         React.createElement("div", { className: "wrap" },
             !USE_FIREBASE && React.createElement("div", { className: "demo" }, "\u30C7\u30E2\u30E2\u30FC\u30C9\uFF1A\u3053\u306E\u7AEF\u672B\u306B\u3060\u3051\u4FDD\u5B58\u3055\u308C\u307E\u3059\u3002\u5171\u6709\u3059\u308B\u306B\u306FFirebase\u8A2D\u5B9A\u3092\u5165\u308C\u3066\u304F\u3060\u3055\u3044\u3002"),
@@ -366,10 +392,7 @@ function Board({ user }) {
                             sum.done,
                             "/",
                             FLOORS.length),
-                        React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2")),
-                    React.createElement("div", { className: "stat" },
-                        React.createElement("b", null, sum.avg === null ? "–" : sum.avg + "%"),
-                        React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u5E73\u5747\u7A4D\u8F09"))),
+                        React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2"))),
                 tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch }),
                 tab === "tr" && React.createElement(Trucks, { data: data, patch: patch }),
                 tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
