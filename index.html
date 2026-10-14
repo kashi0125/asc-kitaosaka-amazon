@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>北大阪 発送状況</title>
+<title>ASC北大阪 アマゾン発送状況</title>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -51,7 +51,7 @@ h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .lbl{font-size:11px;color:var(--sub);display:block;margin-bottom:3px}
 .fld{flex:1;min-width:0}
-.inp{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:transparent}
+.inp{width:100%;padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:transparent}
 .inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
 textarea.inp{min-height:110px;resize:vertical}
 .badge{font-size:20px;font-weight:700;color:var(--accent);width:32px;text-align:center}
@@ -164,6 +164,8 @@ function stepSlot(date, half, dir) {
         return half === "am" ? [date, "pm"] : [shift(date, 1), "am"];
     return half === "pm" ? [date, "am"] : [shift(date, -1), "pm"];
 }
+// 車番：数字4桁だけ入力されたら「12-34」の形に整える
+const fmtPlate = v => { const d = (v || "").replace(/\D/g, ""); return (/^\d{4}$/.test(d) && !/-/.test(v)) ? d.slice(0, 2) + "-" + d.slice(2) : v; };
 const nowHM = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 function useDay(date, user) {
     const [data, setData] = useState(null);
@@ -245,7 +247,7 @@ function Trucks({ data, patch }) {
                     React.createElement("div", { className: "badge" }, MARK[t] || t),
                     React.createElement("div", { className: "fld", style: { flex: 2 } },
                         React.createElement("span", { className: "lbl" }, "\u8ECA\u756A"),
-                        React.createElement(Field, { value: tr.plate, placeholder: "\u306A\u306B\u308F100\u30421234", onCommit: v => patch(`trucks.${t}.plate`, v) })),
+                        React.createElement(Field, { value: tr.plate, placeholder: "12-34", type: "text", inputMode: "tel", autoComplete: "off", onCommit: v => patch(`trucks.${t}.plate`, fmtPlate(v)) })),
                     React.createElement("div", { className: "fld" },
                         React.createElement("span", { className: "lbl" }, "\u6700\u5927\u7A4D\u8F09(t)"),
                         React.createElement(Field, { value: tr.maxT, type: "number", inputMode: "decimal", step: "0.1", onCommit: v => patch(`trucks.${t}.maxT`, v) })),
@@ -304,17 +306,17 @@ function Staff({ data, patch }) {
             return React.createElement("div", { className: "card", key: b.id },
                 React.createElement("div", { className: "row" },
                     React.createElement("div", { className: "badge" }, b.name),
-                    React.createElement("div", { className: "fld", style: { flex: 2 } },
+                    React.createElement("div", { className: "fld", style: { flex: 1 } },
                         React.createElement("span", { className: "lbl" }, "\u62C5\u5F53\u8005"),
                         React.createElement(Field, { value: s.name, placeholder: "\u6C0F\u540D", onCommit: v => patch(`staff.${b.id}.name`, v) })),
-                    React.createElement("div", { className: "fld", style: { flex: 2 } },
+                    React.createElement("div", { className: "fld", style: { flex: 2.3 } },
                         React.createElement("span", { className: "lbl" }, "\u9023\u7D61\u5148"),
-                        React.createElement(Field, { value: s.tel, type: "tel", inputMode: "tel", placeholder: "090-0000-0000", onCommit: v => patch(`staff.${b.id}.tel`, v) })),
+                        React.createElement(Field, { value: s.tel, type: "tel", inputMode: "tel", placeholder: "070-5127-0000", onCommit: v => patch(`staff.${b.id}.tel`, v) })),
                     React.createElement("a", { className: "tel" + (tel ? "" : " off"), href: tel ? "tel:" + tel : undefined, "aria-label": "\u96FB\u8A71" }, "\uD83D\uDCDE")));
         }));
 }
 function reportText(date, half, d) {
-    const L = [`【北大阪アマゾン発送状況】${date.replace(/-/g, "/")} ${halfName(half)}`, "", "■トラック"];
+    const L = [`【ASC北大阪 アマゾン発送状況】${date.replace(/-/g, "/")} ${halfName(half)}`, "", "■トラック"];
     TRUCKS.forEach(t => { const x = d.trucks[t]; if (x.plate || x.maxT || x.load)
         L.push(`${MARK[t] || t} ${x.plate || "-"} / ${x.maxT || "-"}t / 積載${x.load === "" ? "-" : x.load + "%"}`); });
     L.push("", "■倉庫");
@@ -365,7 +367,7 @@ function Board({ user }) {
     return React.createElement(React.Fragment, null,
         React.createElement("header", null,
             React.createElement("div", { className: "hrow" },
-                React.createElement("h1", null, "\u5317\u5927\u962A\u30A2\u30DE\u30BE\u30F3 \u767A\u9001\u72B6\u6CC1"),
+                React.createElement("h1", null, "ASC\u5317\u5927\u962A \u30A2\u30DE\u30BE\u30F3\u767A\u9001\u72B6\u6CC1"),
                 React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status)),
             React.createElement("div", { className: "datebar" },
                 React.createElement("button", { className: "iconbtn", "aria-label": "\u524D\u3078", onClick: () => go(-1) }, "\u2039"),
