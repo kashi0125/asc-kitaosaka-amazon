@@ -284,7 +284,7 @@ function Stepper({ value, onChange }) {
     const n = num(value);
     return React.createElement("div", { className: "stepper" },
         React.createElement("button", { onClick: () => onChange(String(Math.max(0, n - 1))) }, "\u2212"),
-        React.createElement(Field, { value: value, type: "number", inputMode: "numeric", placeholder: "0", onCommit: onChange }),
+        React.createElement(Field, { value: value, type: "number", inputMode: "numeric", placeholder: "\u672A", onCommit: onChange }),
         React.createElement("button", { onClick: () => onChange(String(n + 1)) }, "\uFF0B"));
 }
 function RemainDialog({ floorName, initial, onOk, onCancel }) {
