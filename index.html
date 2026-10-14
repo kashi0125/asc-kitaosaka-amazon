@@ -331,7 +331,18 @@ function Warehouse({ data, patch }) {
                                 React.createElement("span", { className: "upd" },
                                     fl.palletsAt,
                                     " \u66F4\u65B0"))),
-                        React.createElement(Stepper, { value: fl.pallets, onChange: v => v !== fl.pallets && patch(base, { pallets: v, palletsAt: nowHM() }) })),
+                        React.createElement(Stepper, { value: fl.pallets, onChange: v => {
+                                if (v === fl.pallets)
+                                    return;
+                                const t = nowHM(), up = { pallets: v, palletsAt: t };
+                                // 0 に減らしたら「積込後 残なし」に自動で切り替える
+                                if (v !== "" && num(v) === 0 && num(fl.pallets) > 0 && fl.loading !== "積込後 残なし")
+                                    Object.assign(up, { loading: "積込後 残なし", loadingAt: t, remain: "" });
+                                // 「残あり」のときは残り数も合わせておく
+                                else if (fl.loading === "積込後 残あり" && num(v) > 0)
+                                    up.remain = String(num(v));
+                                patch(base, up);
+                            } })),
                     React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
                     React.createElement("div", { className: "row", style: { marginBottom: 10 } }, [1, 2].map(n => React.createElement("button", { key: n, className: "toggle" + (fl[`input${n}`] ? " on" : ""), onClick: () => tog(n) },
                         n,
@@ -352,7 +363,7 @@ function Warehouse({ data, patch }) {
                             patch(base, s === "積込後 残なし"
                                 ? { loading: s, loadingAt: t, remain: "", pallets: "0", palletsAt: t }
                                 : { loading: s, loadingAt: t, remain: "" });
-                        } }, (s === "積込後 残あり" && fl.loading === s && fl.remain ? ["積込後", `残 ${fl.remain}P`] : s.split(" ")).map((w, j) => React.createElement(React.Fragment, { key: j },
+                        } }, s.split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
                         j > 0 && React.createElement("br", null),
                         w))))));
             }))),
