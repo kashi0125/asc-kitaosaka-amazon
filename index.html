@@ -386,7 +386,7 @@ function Staff({ data, patch }) {
                         React.createElement(Field, { value: s.name, placeholder: "\u6C0F\u540D", onCommit: v => patch(`staff.${b.id}`, { name: v, at: nowHM() }) })),
                     React.createElement("div", { className: "fld", style: { flex: 2.3 } },
                         React.createElement("span", { className: "lbl" }, "\u9023\u7D61\u5148"),
-                        React.createElement(Field, { value: s.tel, type: "tel", inputMode: "tel", placeholder: "070-5127-0000", onCommit: v => patch(`staff.${b.id}`, { tel: v, at: nowHM() }) })),
+                        React.createElement(Field, { value: s.tel, type: "tel", inputMode: "tel", placeholder: "070-7667-0000", onCommit: v => patch(`staff.${b.id}`, { tel: v, at: nowHM() }) })),
                     React.createElement("a", { className: "tel" + (tel ? "" : " off"), href: tel ? "tel:" + tel : undefined, "aria-label": "\u96FB\u8A71" }, "\uD83D\uDCDE")),
                 s.at && React.createElement("div", { className: "upd", style: { marginTop: 6, fontSize: 12 } },
                     s.at,
