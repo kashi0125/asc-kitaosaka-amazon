@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>北大阪 発送状況</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -79,307 +78,327 @@ textarea.inp{min-height:110px;resize:vertical}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
+<script>window.addEventListener("error",function(e){var r=document.getElementById("root");if(r&&!r.childElementCount)r.innerHTML="<p style=\"padding:24px;color:#b3261e;font-size:14px\">読み込みに失敗しました："+(e.message||"")+"<br>電波の良い場所で再読み込みしてください。</p>";});</script>
+<script>
+"use strict";
 /* ============================================================
    設定：Firebaseの設定を入れると、URLを開いた全員でリアルタイム共有になります（ログイン不要）。
    空のままだと「デモモード」（この端末のブラウザにだけ保存）。
    ============================================================ */
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDWT44Qtw9_J_aRF27-_L1De9qV9ntk3_8",
-  authDomain: "kitaosaka-shipping.firebaseapp.com",
-  projectId: "kitaosaka-shipping",
-  storageBucket: "kitaosaka-shipping.firebasestorage.app",
-  messagingSenderId: "911558652059",
-  appId: "1:911558652059:web:670eb21fc4e1dfb38c963e"
+    apiKey: "AIzaSyDWT44Qtw9_J_aRF27-_L1De9qV9ntk3_8",
+    authDomain: "kitaosaka-shipping.firebaseapp.com",
+    projectId: "kitaosaka-shipping",
+    storageBucket: "kitaosaka-shipping.firebasestorage.app",
+    messagingSenderId: "911558652059",
+    appId: "1:911558652059:web:670eb21fc4e1dfb38c963e"
 };
-const COLLECTION = "kitaosaka_shipping";   // Firestoreのコレクション名（日付ごとに1ドキュメント）
-
+const COLLECTION = "kitaosaka_shipping"; // Firestoreのコレクション名（日付ごとに1ドキュメント）
 /* ---- 現場の構成（変更はここだけ） ---- */
-const TRUCKS = ["1","2","3","4","5"];
-const MARK = {"1":"①","2":"②","3":"③","4":"④","5":"⑤","6":"⑥","7":"⑦","8":"⑧"};
+const TRUCKS = ["1", "2", "3", "4", "5"];
+const MARK = { "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧" };
 const FLOORS = [
-  {id:"east-3F", bldg:"東", floor:"3F"},
-  {id:"new-6F",  bldg:"新", floor:"6F"},
-  {id:"new-5F",  bldg:"新", floor:"5F"},
-  {id:"new-4F",  bldg:"新", floor:"4F"},
-  {id:"new-3F",  bldg:"新", floor:"3F"},
-  {id:"new-2F",  bldg:"新", floor:"2F"},
+    { id: "east-3F", bldg: "東", floor: "3F" },
+    { id: "new-6F", bldg: "新", floor: "6F" },
+    { id: "new-5F", bldg: "新", floor: "5F" },
+    { id: "new-4F", bldg: "新", floor: "4F" },
+    { id: "new-3F", bldg: "新", floor: "3F" },
+    { id: "new-2F", bldg: "新", floor: "2F" },
 ];
-const BLDGS = [{id:"east", name:"東"}, {id:"new", name:"新"}];
-const LOAD_STATES = ["未","積込中","完了"];
-
+const BLDGS = [{ id: "east", name: "東" }, { id: "new", name: "新" }];
+const LOAD_STATES = ["未", "積込中", "完了"];
 const USE_FIREBASE = !!FIREBASE_CONFIG.apiKey;
 let db = null, auth = null;
 if (USE_FIREBASE) {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  auth = firebase.auth();
-  db = firebase.firestore();
-  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    firebase.initializeApp(FIREBASE_CONFIG);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => { });
 }
-
-const {useState, useEffect, useRef, useCallback, useMemo} = React;
-
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 /* ---------- データ ---------- */
-function emptyDay(){
-  const trucks = {}; TRUCKS.forEach(t => trucks[t] = {plate:"", maxT:"", load:""});
-  const floors = {}; FLOORS.forEach(f => floors[f.id] = {pallets:"", input1:false, input1At:"", input2:false, input2At:"", loading:"未"});
-  const staff = {}; BLDGS.forEach(b => staff[b.id] = {name:"", tel:""});
-  return {trucks, floors, staff, notes:""};
+function emptyDay() {
+    const trucks = {};
+    TRUCKS.forEach(t => trucks[t] = { plate: "", maxT: "", load: "" });
+    const floors = {};
+    FLOORS.forEach(f => floors[f.id] = { pallets: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未" });
+    const staff = {};
+    BLDGS.forEach(b => staff[b.id] = { name: "", tel: "" });
+    return { trucks, floors, staff, notes: "" };
 }
 const isPlain = o => o && typeof o === "object" && o.constructor === Object;
-function deepMerge(a, b){
-  if (!isPlain(a) || !isPlain(b)) return b === undefined ? a : b;
-  const out = {...a};
-  for (const k of Object.keys(b)) out[k] = deepMerge(a[k], b[k]);
-  return out;
+function deepMerge(a, b) {
+    if (!isPlain(a) || !isPlain(b))
+        return b === undefined ? a : b;
+    const out = { ...a };
+    for (const k of Object.keys(b))
+        out[k] = deepMerge(a[k], b[k]);
+    return out;
 }
-function nest(path, val){
-  const keys = path.split("."); const out = {}; let cur = out;
-  keys.forEach((k,i) => { if (i === keys.length-1) cur[k] = val; else { cur[k] = {}; cur = cur[k]; } });
-  return out;
+function nest(path, val) {
+    const keys = path.split(".");
+    const out = {};
+    let cur = out;
+    keys.forEach((k, i) => { if (i === keys.length - 1)
+        cur[k] = val;
+    else {
+        cur[k] = {};
+        cur = cur[k];
+    } });
+    return out;
 }
 const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const today = () => new Date().toLocaleDateString("sv-SE");
-const shift = (d, n) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate()+n); return x.toLocaleDateString("sv-SE"); };
-const nowHM = () => new Date().toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit"});
-
-function useDay(date, user){
-  const [data, setData] = useState(null);
-  const [status, setStatus] = useState("読込中");
-  useEffect(() => {
-    setData(null);
-    if (USE_FIREBASE) {
-      if (!user) return;
-      const ref = db.collection(COLLECTION).doc(date);
-      return ref.onSnapshot({includeMetadataChanges:true}, snap => {
-        setData(deepMerge(emptyDay(), snap.data() || {}));
-        setStatus(snap.metadata.hasPendingWrites ? "保存中…" : snap.metadata.fromCache ? "オフライン" : "同期済み");
-      }, err => setStatus("エラー: " + err.code));
-    } else {
-      const key = "asc-ship-" + date;
-      const load = () => { try { setData(deepMerge(emptyDay(), JSON.parse(localStorage.getItem(key) || "{}"))); } catch { setData(emptyDay()); } };
-      load(); setStatus("デモ");
-      const onS = e => { if (e.key === key) load(); };
-      window.addEventListener("storage", onS);
-      return () => window.removeEventListener("storage", onS);
-    }
-  }, [date, user]);
-
-  const patch = useCallback((path, val) => {
-    const p = nest(path, val);
-    setData(d => deepMerge(d || emptyDay(), p));
-    if (USE_FIREBASE) {
-      db.collection(COLLECTION).doc(date).set({
-        ...p,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, {merge:true}).catch(e => setStatus("エラー: " + e.code));
-    } else {
-      try {
-        const key = "asc-ship-" + date;
-        const cur = JSON.parse(localStorage.getItem(key) || "{}");
-        localStorage.setItem(key, JSON.stringify(deepMerge(cur, p)));
-      } catch {}
-    }
-  }, [date, user]);
-
-  return {data, patch, status};
+const shift = (d, n) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toLocaleDateString("sv-SE"); };
+const nowHM = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+function useDay(date, user) {
+    const [data, setData] = useState(null);
+    const [status, setStatus] = useState("読込中");
+    useEffect(() => {
+        setData(null);
+        if (USE_FIREBASE) {
+            if (!user)
+                return;
+            const ref = db.collection(COLLECTION).doc(date);
+            return ref.onSnapshot({ includeMetadataChanges: true }, snap => {
+                setData(deepMerge(emptyDay(), snap.data() || {}));
+                setStatus(snap.metadata.hasPendingWrites ? "保存中…" : snap.metadata.fromCache ? "オフライン" : "同期済み");
+            }, err => setStatus("エラー: " + err.code));
+        }
+        else {
+            const key = "asc-ship-" + date;
+            const load = () => { try {
+                setData(deepMerge(emptyDay(), JSON.parse(localStorage.getItem(key) || "{}")));
+            }
+            catch {
+                setData(emptyDay());
+            } };
+            load();
+            setStatus("デモ");
+            const onS = e => { if (e.key === key)
+                load(); };
+            window.addEventListener("storage", onS);
+            return () => window.removeEventListener("storage", onS);
+        }
+    }, [date, user]);
+    const patch = useCallback((path, val) => {
+        const p = nest(path, val);
+        setData(d => deepMerge(d || emptyDay(), p));
+        if (USE_FIREBASE) {
+            db.collection(COLLECTION).doc(date).set({
+                ...p,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(e => setStatus("エラー: " + e.code));
+        }
+        else {
+            try {
+                const key = "asc-ship-" + date;
+                const cur = JSON.parse(localStorage.getItem(key) || "{}");
+                localStorage.setItem(key, JSON.stringify(deepMerge(cur, p)));
+            }
+            catch { }
+        }
+    }, [date, user]);
+    return { data, patch, status };
 }
-
 /* ---------- 入力部品（入力中は他人の更新で上書きされない） ---------- */
-function Field({value, onCommit, as, ...rest}){
-  const [v, setV] = useState(value ?? "");
-  const focused = useRef(false), timer = useRef(), last = useRef(value ?? "");
-  useEffect(() => { last.current = value ?? ""; if (!focused.current) setV(value ?? ""); }, [value]);
-  const commit = nv => { clearTimeout(timer.current); if (nv !== last.current) { last.current = nv; onCommit(nv); } };
-  const Tag = as || "input";
-  return <Tag className="inp" {...rest} value={v}
-    onFocus={() => focused.current = true}
-    onChange={e => { const nv = e.target.value; setV(nv); clearTimeout(timer.current); timer.current = setTimeout(() => commit(nv), 700); }}
-    onBlur={e => { focused.current = false; commit(e.target.value); }} />;
+function Field({ value, onCommit, as, ...rest }) {
+    const [v, setV] = useState(value !== null && value !== void 0 ? value : "");
+    const focused = useRef(false), timer = useRef(), last = useRef(value !== null && value !== void 0 ? value : "");
+    useEffect(() => { last.current = value !== null && value !== void 0 ? value : ""; if (!focused.current)
+        setV(value !== null && value !== void 0 ? value : ""); }, [value]);
+    const commit = nv => { clearTimeout(timer.current); if (nv !== last.current) {
+        last.current = nv;
+        onCommit(nv);
+    } };
+    const Tag = as || "input";
+    return React.createElement(Tag, { className: "inp", ...rest, value: v, onFocus: () => focused.current = true, onChange: e => { const nv = e.target.value; setV(nv); clearTimeout(timer.current); timer.current = setTimeout(() => commit(nv), 700); }, onBlur: e => { focused.current = false; commit(e.target.value); } });
 }
-
 /* ---------- 画面 ---------- */
-function loadColor(p){ if (p > 100) return "var(--danger)"; if (p >= 90) return "var(--done)"; if (p >= 50) return "var(--mid)"; return "var(--warn)"; }
-
-function Trucks({data, patch}){
-  return <>
-    <div className="sec">トラック</div>
-    {TRUCKS.map(t => {
-      const tr = data.trucks[t]; const pct = num(tr.load); const tons = num(tr.maxT) * pct / 100;
-      return <div className="card" key={t}>
-        <div className="row">
-          <div className="badge">{MARK[t] || t}</div>
-          <div className="fld" style={{flex:2}}>
-            <span className="lbl">車番</span>
-            <Field value={tr.plate} placeholder="なにわ100あ1234" onCommit={v => patch(`trucks.${t}.plate`, v)} />
-          </div>
-          <div className="fld">
-            <span className="lbl">最大積載(t)</span>
-            <Field value={tr.maxT} type="number" inputMode="decimal" step="0.1" onCommit={v => patch(`trucks.${t}.maxT`, v)} />
-          </div>
-          <div className="fld">
-            <span className="lbl">積載現状(％)</span>
-            <Field value={tr.load} type="number" inputMode="numeric" onCommit={v => patch(`trucks.${t}.load`, v)} />
-          </div>
-        </div>
-        <div className="bar"><i style={{width: Math.min(pct,100) + "%", background: loadColor(pct)}} /></div>
-        <div className="small" style={{marginTop:4, display:"flex", justifyContent:"space-between"}}>
-          <span>{tr.load === "" ? "未入力" : `${pct}%`}{pct > 100 && "（過積載注意）"}</span>
-          <span>{num(tr.maxT) > 0 && tr.load !== "" ? `約 ${tons.toFixed(1)}t / ${num(tr.maxT)}t` : ""}</span>
-        </div>
-      </div>;
-    })}
-  </>;
+function loadColor(p) { if (p > 100)
+    return "var(--danger)"; if (p >= 90)
+    return "var(--done)"; if (p >= 50)
+    return "var(--mid)"; return "var(--warn)"; }
+function Trucks({ data, patch }) {
+    return React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "sec" }, "\u30C8\u30E9\u30C3\u30AF"),
+        TRUCKS.map(t => {
+            const tr = data.trucks[t];
+            const pct = num(tr.load);
+            const tons = num(tr.maxT) * pct / 100;
+            return React.createElement("div", { className: "card", key: t },
+                React.createElement("div", { className: "row" },
+                    React.createElement("div", { className: "badge" }, MARK[t] || t),
+                    React.createElement("div", { className: "fld", style: { flex: 2 } },
+                        React.createElement("span", { className: "lbl" }, "\u8ECA\u756A"),
+                        React.createElement(Field, { value: tr.plate, placeholder: "\u306A\u306B\u308F100\u30421234", onCommit: v => patch(`trucks.${t}.plate`, v) })),
+                    React.createElement("div", { className: "fld" },
+                        React.createElement("span", { className: "lbl" }, "\u6700\u5927\u7A4D\u8F09(t)"),
+                        React.createElement(Field, { value: tr.maxT, type: "number", inputMode: "decimal", step: "0.1", onCommit: v => patch(`trucks.${t}.maxT`, v) })),
+                    React.createElement("div", { className: "fld" },
+                        React.createElement("span", { className: "lbl" }, "\u7A4D\u8F09\u73FE\u72B6(\uFF05)"),
+                        React.createElement(Field, { value: tr.load, type: "number", inputMode: "numeric", onCommit: v => patch(`trucks.${t}.load`, v) }))),
+                React.createElement("div", { className: "bar" },
+                    React.createElement("i", { style: { width: Math.min(pct, 100) + "%", background: loadColor(pct) } })),
+                React.createElement("div", { className: "small", style: { marginTop: 4, display: "flex", justifyContent: "space-between" } },
+                    React.createElement("span", null,
+                        tr.load === "" ? "未入力" : `${pct}%`,
+                        pct > 100 && "（過積載注意）"),
+                    React.createElement("span", null, num(tr.maxT) > 0 && tr.load !== "" ? `約 ${tons.toFixed(1)}t / ${num(tr.maxT)}t` : "")));
+        }));
 }
-
-function Stepper({value, onChange}){
-  const n = num(value);
-  return <div className="stepper">
-    <button onClick={() => onChange(String(Math.max(0, n-1)))}>−</button>
-    <Field value={value} type="number" inputMode="numeric" placeholder="0" onCommit={onChange} />
-    <button onClick={() => onChange(String(n+1))}>＋</button>
-  </div>;
+function Stepper({ value, onChange }) {
+    const n = num(value);
+    return React.createElement("div", { className: "stepper" },
+        React.createElement("button", { onClick: () => onChange(String(Math.max(0, n - 1))) }, "\u2212"),
+        React.createElement(Field, { value: value, type: "number", inputMode: "numeric", placeholder: "0", onCommit: onChange }),
+        React.createElement("button", { onClick: () => onChange(String(n + 1)) }, "\uFF0B"));
 }
-
-function Warehouse({data, patch}){
-  return <>
-    {BLDGS.map(b => <React.Fragment key={b.id}>
-      <div className="sec">{b.name}</div>
-      {FLOORS.filter(f => f.bldg === b.name).map(f => {
-        const fl = data.floors[f.id]; const base = `floors.${f.id}`;
-        const tog = n => patch(base, {[`input${n}`]: !fl[`input${n}`], [`input${n}At`]: fl[`input${n}`] ? "" : nowHM()});
-        return <div className="card" key={f.id}>
-          <div className="floorhead">
-            <div className="floor">{f.floor}</div>
-            <div style={{flex:1}} className="small">物量（パレット数）</div>
-            <Stepper value={fl.pallets} onChange={v => patch(`${base}.pallets`, v)} />
-          </div>
-          <span className="lbl">端末入力</span>
-          <div className="row" style={{marginBottom:10}}>
-            {[1,2].map(n => <button key={n} className={"toggle" + (fl[`input${n}`] ? " on" : "")} onClick={() => tog(n)}>
-              {n}回目 {fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"}
-            </button>)}
-          </div>
-          <span className="lbl">積込状況</span>
-          <div className="seg">
-            {LOAD_STATES.map((s,i) => <button key={s} className={fl.loading === s ? "s" + i : ""} onClick={() => patch(`${base}.loading`, s)}>{s}</button>)}
-          </div>
-        </div>;
-      })}
-    </React.Fragment>)}
-    <div className="sec">連絡事項</div>
-    <div className="card"><Field as="textarea" value={data.notes} placeholder="引き継ぎ・注意点など" onCommit={v => patch("notes", v)} /></div>
-  </>;
+function Warehouse({ data, patch }) {
+    return React.createElement(React.Fragment, null,
+        BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
+            React.createElement("div", { className: "sec" }, b.name),
+            FLOORS.filter(f => f.bldg === b.name).map(f => {
+                const fl = data.floors[f.id];
+                const base = `floors.${f.id}`;
+                const tog = n => patch(base, { [`input${n}`]: !fl[`input${n}`], [`input${n}At`]: fl[`input${n}`] ? "" : nowHM() });
+                return React.createElement("div", { className: "card", key: f.id },
+                    React.createElement("div", { className: "floorhead" },
+                        React.createElement("div", { className: "floor" }, f.floor),
+                        React.createElement("div", { style: { flex: 1 }, className: "small" }, "\u7269\u91CF\uFF08\u30D1\u30EC\u30C3\u30C8\u6570\uFF09"),
+                        React.createElement(Stepper, { value: fl.pallets, onChange: v => patch(`${base}.pallets`, v) })),
+                    React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
+                    React.createElement("div", { className: "row", style: { marginBottom: 10 } }, [1, 2].map(n => React.createElement("button", { key: n, className: "toggle" + (fl[`input${n}`] ? " on" : ""), onClick: () => tog(n) },
+                        n,
+                        "\u56DE\u76EE ",
+                        fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"))),
+                    React.createElement("span", { className: "lbl" }, "\u7A4D\u8FBC\u72B6\u6CC1"),
+                    React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => patch(`${base}.loading`, s) }, s))));
+            }))),
+        React.createElement("div", { className: "sec" }, "\u9023\u7D61\u4E8B\u9805"),
+        React.createElement("div", { className: "card" },
+            React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "\u5F15\u304D\u7D99\u304E\u30FB\u6CE8\u610F\u70B9\u306A\u3069", onCommit: v => patch("notes", v) })));
 }
-
-function Staff({data, patch}){
-  return <>
-    <div className="sec">端末入力員</div>
-    {BLDGS.map(b => {
-      const s = data.staff[b.id]; const tel = (s.tel || "").replace(/[^\d+]/g, "");
-      return <div className="card" key={b.id}>
-        <div className="row">
-          <div className="badge">{b.name}</div>
-          <div className="fld" style={{flex:2}}>
-            <span className="lbl">担当者</span>
-            <Field value={s.name} placeholder="氏名" onCommit={v => patch(`staff.${b.id}.name`, v)} />
-          </div>
-          <div className="fld" style={{flex:2}}>
-            <span className="lbl">連絡先</span>
-            <Field value={s.tel} type="tel" inputMode="tel" placeholder="090-0000-0000" onCommit={v => patch(`staff.${b.id}.tel`, v)} />
-          </div>
-          <a className={"tel" + (tel ? "" : " off")} href={tel ? "tel:" + tel : undefined} aria-label="電話">📞</a>
-        </div>
-      </div>;
-    })}
-  </>;
+function Staff({ data, patch }) {
+    return React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "sec" }, "\u7AEF\u672B\u5165\u529B\u54E1"),
+        BLDGS.map(b => {
+            const s = data.staff[b.id];
+            const tel = (s.tel || "").replace(/[^\d+]/g, "");
+            return React.createElement("div", { className: "card", key: b.id },
+                React.createElement("div", { className: "row" },
+                    React.createElement("div", { className: "badge" }, b.name),
+                    React.createElement("div", { className: "fld", style: { flex: 2 } },
+                        React.createElement("span", { className: "lbl" }, "\u62C5\u5F53\u8005"),
+                        React.createElement(Field, { value: s.name, placeholder: "\u6C0F\u540D", onCommit: v => patch(`staff.${b.id}.name`, v) })),
+                    React.createElement("div", { className: "fld", style: { flex: 2 } },
+                        React.createElement("span", { className: "lbl" }, "\u9023\u7D61\u5148"),
+                        React.createElement(Field, { value: s.tel, type: "tel", inputMode: "tel", placeholder: "090-0000-0000", onCommit: v => patch(`staff.${b.id}.tel`, v) })),
+                    React.createElement("a", { className: "tel" + (tel ? "" : " off"), href: tel ? "tel:" + tel : undefined, "aria-label": "\u96FB\u8A71" }, "\uD83D\uDCDE")));
+        }));
 }
-
-function reportText(date, d){
-  const L = [`【北大阪アマゾン発送状況】${date.replace(/-/g,"/")}`, "", "■トラック"];
-  TRUCKS.forEach(t => { const x = d.trucks[t]; if (x.plate || x.maxT || x.load) L.push(`${MARK[t]||t} ${x.plate||"-"} / ${x.maxT||"-"}t / 積載${x.load===""?"-":x.load+"%"}`); });
-  L.push("", "■倉庫");
-  FLOORS.forEach(f => { const x = d.floors[f.id]; L.push(`${f.bldg}${f.floor} ${x.pallets||0}P 入力①${x.input1?"✓":"-"} ②${x.input2?"✓":"-"} 積込:${x.loading}`); });
-  L.push(`合計 ${FLOORS.reduce((s,f) => s + num(d.floors[f.id].pallets), 0)}P`);
-  L.push("", "■端末入力員");
-  BLDGS.forEach(b => { const s = d.staff[b.id]; L.push(`${b.name}：${s.name||"-"}${s.tel?`（${s.tel}）`:""}`); });
-  if (d.notes) L.push("", "■連絡事項", d.notes);
-  return L.join("\n");
+function reportText(date, d) {
+    const L = [`【北大阪アマゾン発送状況】${date.replace(/-/g, "/")}`, "", "■トラック"];
+    TRUCKS.forEach(t => { const x = d.trucks[t]; if (x.plate || x.maxT || x.load)
+        L.push(`${MARK[t] || t} ${x.plate || "-"} / ${x.maxT || "-"}t / 積載${x.load === "" ? "-" : x.load + "%"}`); });
+    L.push("", "■倉庫");
+    FLOORS.forEach(f => { const x = d.floors[f.id]; L.push(`${f.bldg}${f.floor} ${x.pallets || 0}P 入力①${x.input1 ? "✓" : "-"} ②${x.input2 ? "✓" : "-"} 積込:${x.loading}`); });
+    L.push(`合計 ${FLOORS.reduce((s, f) => s + num(d.floors[f.id].pallets), 0)}P`);
+    L.push("", "■端末入力員");
+    BLDGS.forEach(b => { const s = d.staff[b.id]; L.push(`${b.name}：${s.name || "-"}${s.tel ? `（${s.tel}）` : ""}`); });
+    if (d.notes)
+        L.push("", "■連絡事項", d.notes);
+    return L.join("\n");
 }
-
-function Board({user}){
-  const [date, setDate] = useState(today());
-  const [tab, setTab] = useState(() => { try { return localStorage.getItem("asc-ship-tab") || "wh"; } catch { return "wh"; } });
-  const [toast, setToast] = useState("");
-  const {data, patch, status} = useDay(date, user);
-  useEffect(() => { try { localStorage.setItem("asc-ship-tab", tab); } catch {} }, [tab]);
-
-  const sum = useMemo(() => {
-    if (!data) return null;
-    const pallets = FLOORS.reduce((s,f) => s + num(data.floors[f.id].pallets), 0);
-    const done = FLOORS.filter(f => data.floors[f.id].loading === "完了").length;
-    const loads = TRUCKS.map(t => data.trucks[t].load).filter(v => v !== "").map(num);
-    const avg = loads.length ? Math.round(loads.reduce((a,b) => a+b, 0) / loads.length) : null;
-    return {pallets, done, avg};
-  }, [data]);
-
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(reportText(date, data)); setToast("報告文をコピーしました"); }
-    catch { setToast("コピーできませんでした"); }
-    setTimeout(() => setToast(""), 1800);
-  };
-
-  return <>
-    <header>
-      <div className="hrow">
-        <h1>北大阪アマゾン 発送状況</h1>
-        <span className={"status" + (status.startsWith("エラー") ? " err" : "")}>{status}</span>
-      </div>
-      <div className="datebar">
-        <button className="iconbtn" onClick={() => setDate(shift(date,-1))}>‹</button>
-        <input type="date" value={date} onChange={e => e.target.value && setDate(e.target.value)} />
-        <button className="iconbtn" onClick={() => setDate(shift(date,1))}>›</button>
-        {date !== today() && <button className="iconbtn" onClick={() => setDate(today())}>今日</button>}
-      </div>
-      <div className="tabs">
-        {[["wh","倉庫"],["tr","トラック"],["st","端末入力員"]].map(([k,l]) =>
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}
-      </div>
-    </header>
-    <div className="wrap">
-      {!USE_FIREBASE && <div className="demo">デモモード：この端末にだけ保存されます。共有するにはFirebase設定を入れてください。</div>}
-      {!data ? <p className="small" style={{marginTop:20}}>読み込み中…</p> : <>
-        <div className="summary">
-          <div className="stat"><b>{sum.pallets}</b><span>総パレット</span></div>
-          <div className="stat"><b>{sum.done}/{FLOORS.length}</b><span>積込完了フロア</span></div>
-          <div className="stat"><b>{sum.avg === null ? "–" : sum.avg + "%"}</b><span>トラック平均積載</span></div>
-        </div>
-        {tab === "wh" && <Warehouse data={data} patch={patch} />}
-        {tab === "tr" && <Trucks data={data} patch={patch} />}
-        {tab === "st" && <Staff data={data} patch={patch} />}
-      </>}
-    </div>
-    {data && <button className="fab" onClick={copy}>📋 報告文をコピー</button>}
-    {toast && <div className="toast">{toast}</div>}
-  </>;
+function Board({ user }) {
+    const [date, setDate] = useState(today());
+    const [tab, setTab] = useState(() => { try {
+        return localStorage.getItem("asc-ship-tab") || "wh";
+    }
+    catch {
+        return "wh";
+    } });
+    const [toast, setToast] = useState("");
+    const { data, patch, status } = useDay(date, user);
+    useEffect(() => { try {
+        localStorage.setItem("asc-ship-tab", tab);
+    }
+    catch { } }, [tab]);
+    const sum = useMemo(() => {
+        if (!data)
+            return null;
+        const pallets = FLOORS.reduce((s, f) => s + num(data.floors[f.id].pallets), 0);
+        const done = FLOORS.filter(f => data.floors[f.id].loading === "完了").length;
+        const loads = TRUCKS.map(t => data.trucks[t].load).filter(v => v !== "").map(num);
+        const avg = loads.length ? Math.round(loads.reduce((a, b) => a + b, 0) / loads.length) : null;
+        return { pallets, done, avg };
+    }, [data]);
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(reportText(date, data));
+            setToast("報告文をコピーしました");
+        }
+        catch {
+            setToast("コピーできませんでした");
+        }
+        setTimeout(() => setToast(""), 1800);
+    };
+    return React.createElement(React.Fragment, null,
+        React.createElement("header", null,
+            React.createElement("div", { className: "hrow" },
+                React.createElement("h1", null, "\u5317\u5927\u962A\u30A2\u30DE\u30BE\u30F3 \u767A\u9001\u72B6\u6CC1"),
+                React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status)),
+            React.createElement("div", { className: "datebar" },
+                React.createElement("button", { className: "iconbtn", onClick: () => setDate(shift(date, -1)) }, "\u2039"),
+                React.createElement("input", { type: "date", value: date, onChange: e => e.target.value && setDate(e.target.value) }),
+                React.createElement("button", { className: "iconbtn", onClick: () => setDate(shift(date, 1)) }, "\u203A"),
+                date !== today() && React.createElement("button", { className: "iconbtn", onClick: () => setDate(today()) }, "\u4ECA\u65E5")),
+            React.createElement("div", { className: "tabs" }, [["wh", "倉庫"], ["tr", "トラック"], ["st", "端末入力員"]].map(([k, l]) => React.createElement("button", { key: k, className: tab === k ? "on" : "", onClick: () => setTab(k) }, l)))),
+        React.createElement("div", { className: "wrap" },
+            !USE_FIREBASE && React.createElement("div", { className: "demo" }, "\u30C7\u30E2\u30E2\u30FC\u30C9\uFF1A\u3053\u306E\u7AEF\u672B\u306B\u3060\u3051\u4FDD\u5B58\u3055\u308C\u307E\u3059\u3002\u5171\u6709\u3059\u308B\u306B\u306FFirebase\u8A2D\u5B9A\u3092\u5165\u308C\u3066\u304F\u3060\u3055\u3044\u3002"),
+            !data ? React.createElement("p", { className: "small", style: { marginTop: 20 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "summary" },
+                    React.createElement("div", { className: "stat" },
+                        React.createElement("b", null, sum.pallets),
+                        React.createElement("span", null, "\u7DCF\u30D1\u30EC\u30C3\u30C8")),
+                    React.createElement("div", { className: "stat" },
+                        React.createElement("b", null,
+                            sum.done,
+                            "/",
+                            FLOORS.length),
+                        React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2")),
+                    React.createElement("div", { className: "stat" },
+                        React.createElement("b", null, sum.avg === null ? "–" : sum.avg + "%"),
+                        React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u5E73\u5747\u7A4D\u8F09"))),
+                tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch }),
+                tab === "tr" && React.createElement(Trucks, { data: data, patch: patch }),
+                tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
+        data && React.createElement("button", { className: "fab", onClick: copy }, "\uD83D\uDCCB \u5831\u544A\u6587\u3092\u30B3\u30D4\u30FC"),
+        toast && React.createElement("div", { className: "toast" }, toast));
 }
-
-function App(){
-  const [user, setUser] = useState(USE_FIREBASE ? undefined : {uid:"demo"});
-  const [err, setErr] = useState("");
-  useEffect(() => {
-    if (!USE_FIREBASE) return;
-    return auth.onAuthStateChanged(u => {
-      if (u) setUser(u);
-      else auth.signInAnonymously().catch(e => setErr(e.code));
-    });
-  }, []);
-  if (err) return <p className="err" style={{textAlign:"center", marginTop:"30vh"}}>接続できませんでした（{err}）</p>;
-  if (!user) return <p className="small" style={{textAlign:"center", marginTop:"30vh"}}>読み込み中…</p>;
-  return <Board user={user} />;
+function App() {
+    const [user, setUser] = useState(USE_FIREBASE ? undefined : { uid: "demo" });
+    const [err, setErr] = useState("");
+    useEffect(() => {
+        if (!USE_FIREBASE)
+            return;
+        return auth.onAuthStateChanged(u => {
+            if (u)
+                setUser(u);
+            else
+                auth.signInAnonymously().catch(e => setErr(e.code));
+        });
+    }, []);
+    if (err)
+        return React.createElement("p", { className: "err", style: { textAlign: "center", marginTop: "30vh" } },
+            "\u63A5\u7D9A\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08",
+            err,
+            "\uFF09");
+    if (!user)
+        return React.createElement("p", { className: "small", style: { textAlign: "center", marginTop: "30vh" } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026");
+    return React.createElement(Board, { user: user });
 }
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));
 </script>
 </body>
 </html>
