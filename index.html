@@ -57,6 +57,7 @@ textarea.inp{min-height:110px;resize:vertical}
 .badge{font-size:20px;font-weight:700;color:var(--accent);width:32px;text-align:center}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;border-radius:99px;transition:width .2s}
+.upd{color:var(--accent);font-weight:600}
 .small{font-size:12px;color:var(--sub)}
 .floorhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .floor{font-weight:700;font-size:16px;min-width:44px}
@@ -128,7 +129,7 @@ function emptyDay() {
     const trucks = {};
     TRUCKS.forEach(t => trucks[t] = { plate: "", maxT: "", load: "" });
     const floors = {};
-    FLOORS.forEach(f => floors[f.id] = { pallets: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未" });
+    FLOORS.forEach(f => floors[f.id] = { pallets: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未", loadingAt: "" });
     const staff = {};
     BLDGS.forEach(b => staff[b.id] = { name: "", tel: "" });
     return { trucks, floors, staff, notes: "" };
@@ -288,8 +289,13 @@ function Warehouse({ data, patch }) {
                         n,
                         "\u56DE\u76EE ",
                         fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"))),
-                    React.createElement("span", { className: "lbl" }, "\u7A4D\u8FBC\u72B6\u6CC1"),
-                    React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => patch(`${base}.loading`, s) }, s.split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
+                    React.createElement("span", { className: "lbl" },
+                        "\u7A4D\u8FBC\u72B6\u6CC1",
+                        fl.loadingAt && React.createElement("span", { className: "upd" },
+                            "\u3000",
+                            fl.loadingAt,
+                            " \u66F4\u65B0")),
+                    React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => fl.loading !== s && patch(base, { loading: s, loadingAt: nowHM() }) }, s.split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
                         j > 0 && React.createElement("br", null),
                         w))))));
             }))),
@@ -320,7 +326,7 @@ function reportText(date, half, d) {
     TRUCKS.forEach(t => { const x = d.trucks[t]; if (x.plate || x.maxT || x.load)
         L.push(`${MARK[t] || t} ${x.plate || "-"} / ${x.maxT || "-"}t / 積載${x.load === "" ? "-" : x.load + "%"}`); });
     L.push("", "■倉庫");
-    FLOORS.forEach(f => { const x = d.floors[f.id]; L.push(`${f.bldg}${f.floor} ${x.pallets || 0}P 入力①${x.input1 ? "✓" : "-"} ②${x.input2 ? "✓" : "-"} 積込:${x.loading}`); });
+    FLOORS.forEach(f => { const x = d.floors[f.id]; L.push(`${f.bldg}${f.floor} ${x.pallets || 0}P 入力①${x.input1 ? "✓" : "-"} ②${x.input2 ? "✓" : "-"} 積込:${x.loading}${x.loadingAt ? `(${x.loadingAt})` : ""}`); });
     L.push(`合計 ${FLOORS.reduce((s, f) => s + num(d.floors[f.id].pallets), 0)}P`);
     L.push("", "■端末入力員");
     BLDGS.forEach(b => { const s = d.staff[b.id]; L.push(`${b.name}：${s.name || "-"}${s.tel ? `（${s.tel}）` : ""}`); });
