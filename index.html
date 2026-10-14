@@ -53,7 +53,7 @@ h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
 .fld{flex:1;min-width:0}
 .inp{width:100%;padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:transparent}
 .inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
-textarea.inp{min-height:110px;resize:vertical}
+textarea.inp{min-height:72px;resize:vertical}
 .badge{font-size:20px;font-weight:700;color:var(--accent);width:32px;text-align:center}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;border-radius:99px;transition:width .2s}
@@ -370,15 +370,7 @@ function Warehouse({ data, patch }) {
                         } }, (LOAD_LABEL[s] || s).split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
                         j > 0 && React.createElement("br", null),
                         w))))));
-            }))),
-        React.createElement("div", { className: "sec" },
-            "\u9023\u7D61\u4E8B\u9805",
-            data.notesAt && React.createElement("span", { className: "upd" },
-                "\u3000",
-                data.notesAt,
-                " \u66F4\u65B0")),
-        React.createElement("div", { className: "card" },
-            React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "\u5F15\u304D\u7D99\u304E\u30FB\u6CE8\u610F\u70B9\u306A\u3069", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) })));
+            }))));
 }
 function Staff({ data, patch }) {
     return React.createElement(React.Fragment, null,
@@ -457,6 +449,14 @@ function Board({ user }) {
                             "/",
                             FLOORS.length),
                         React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2"))),
+                React.createElement("div", { className: "sec", style: { marginTop: 4 } },
+                    "\u9023\u7D61\u4E8B\u9805",
+                    data.notesAt && React.createElement("span", { className: "upd" },
+                        "\u3000",
+                        data.notesAt,
+                        " \u66F4\u65B0")),
+                React.createElement("div", { className: "card" },
+                    React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "\u5F15\u304D\u7D99\u304E\u30FB\u6CE8\u610F\u70B9\u306A\u3069", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) })),
                 tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch }),
                 tab === "tr" && React.createElement(Trucks, { data: data, patch: patch }),
                 tab === "st" && React.createElement(Staff, { data: data, patch: patch }))));
