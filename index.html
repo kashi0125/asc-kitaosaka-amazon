@@ -116,7 +116,10 @@ const FLOORS = [
     { id: "new-3F", bldg: "新", floor: "3F" },
     { id: "new-2F", bldg: "新", floor: "2F" },
 ];
-const BLDGS = [{ id: "east", name: "東" }, { id: "new", name: "新" }];
+const BLDGS = [
+    { id: "east", name: "東", label: "東 (茨木市宮島1-2-1)" }, // label：倉庫タブの見出し
+    { id: "new", name: "新", label: "新店 (茨木市宮島2-5-1新建屋)" },
+];
 const LOAD_STATES = ["未", "積込中", "積込後 残あり", "積込後 残なし"];
 const LOADED = ["積込後 残なし"]; // 「積込完了フロア」に数える状態
 const HALVES = [{ id: "am", name: "前半" }, { id: "pm", name: "後半" }];
@@ -315,7 +318,7 @@ function Warehouse({ data, patch }) {
     return React.createElement(React.Fragment, null,
         askFloor && React.createElement(RemainDialog, { floorName: `${askFloor.bldg}${askFloor.floor}`, initial: data.floors[ask].remain, onCancel: () => setAsk(null), onOk: n => { const t = nowHM(); patch(`floors.${ask}`, { loading: "積込後 残あり", remain: n, loadingAt: t, pallets: n, palletsAt: t }); setAsk(null); } }),
         BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
-            React.createElement("div", { className: "sec" }, b.name),
+            React.createElement("div", { className: "sec" }, b.label),
             FLOORS.filter(f => f.bldg === b.name).map(f => {
                 const fl = data.floors[f.id];
                 const base = `floors.${f.id}`;
