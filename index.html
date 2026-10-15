@@ -126,7 +126,7 @@ const COLLECTION = "kitaosaka_shipping"; // Firestoreのコレクション名（
 const TRUCKS = ["1", "2", "3", "4", "5"];
 const MARK = { "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧" };
 const FLOORS = [
-    { id: "east-3F", bldg: "east", floor: "最上階" }, // id は保存先の名前なので変更しない
+    { id: "east-3F", bldg: "east", floor: "ヒガシ" }, // id は保存先の名前なので変更しない
     { id: "new-6F", bldg: "new", floor: "6階" },
     { id: "new-5F", bldg: "new", floor: "5階" },
     { id: "new-4F", bldg: "new", floor: "4階" },
@@ -134,7 +134,7 @@ const FLOORS = [
     { id: "new-2F", bldg: "new", floor: "2階" },
 ];
 const BLDGS = [
-    { id: "east", name: "ヒガシ", label: "ヒガシ (茨木市宮島1-2-1)" }, // label：倉庫タブの見出し
+    { id: "east", name: "ヒガシ", label: "ヒガシ (茨木市宮島1-2-1-最上階)" }, // label：倉庫タブの見出し
     { id: "new", name: "新店", label: "新店 (茨木市宮島2-5-1新建屋)" },
 ];
 const SIZES = ["小", "中", "大"];
@@ -408,7 +408,7 @@ function Warehouse({ data, patch, slot }) {
     const [ask, setAsk] = useState(null); // 残りパレット数を聞いているフロア
     const askFloor = ask && FLOORS.find(f => f.id === ask);
     return React.createElement(React.Fragment, null,
-        askFloor && React.createElement(RemainDialog, { floorName: `${BLDGS.find(b => b.id === askFloor.bldg).name} ${askFloor.floor}`, initial: data.floors[ask].remain, onCancel: () => setAsk(null), onOk: n => { const t = nowHM(); patch(`floors.${ask}`, { loading: "積込後 残あり", remain: n, loadingAt: t, pallets: n, palletsAt: t }); setAsk(null); } }),
+        askFloor && React.createElement(RemainDialog, { floorName: askFloor.bldg === "east" ? askFloor.floor : `${BLDGS.find(b => b.id === askFloor.bldg).name} ${askFloor.floor}`, initial: data.floors[ask].remain, onCancel: () => setAsk(null), onOk: n => { const t = nowHM(); patch(`floors.${ask}`, { loading: "積込後 残あり", remain: n, loadingAt: t, pallets: n, palletsAt: t }); setAsk(null); } }),
         BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
             React.createElement("div", { className: "sec" }, b.label),
             FLOORS.filter(f => f.bldg === b.id).map(f => {
