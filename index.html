@@ -30,7 +30,10 @@ button,input,textarea,select{font:inherit;color:inherit}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px 32px}
 header{position:sticky;top:0;z-index:10;background:var(--bg);padding:12px 16px 8px;border-bottom:1px solid var(--line)}
 .hrow{max-width:728px;margin:0 auto;display:flex;align-items:center;gap:8px}
-h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
+h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-width:0;white-space:nowrap}
+.undo{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--ink)}
+.undo:disabled{opacity:.35;cursor:default}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:13px;z-index:60}
 .status{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .status.err{background:var(--warn-soft);color:var(--danger)}
 .datebar{max-width:728px;margin:8px auto 0;display:flex;gap:6px;align-items:center}
@@ -214,8 +217,13 @@ function useDay(date, user) {
             return () => window.removeEventListener("storage", onS);
         }
     }, [date, user]);
-    const patch = useCallback((path, val) => {
-        const p = nest(path, val);
+    // 「戻る」用：この端末で行った変更を、変更前の値と一緒に記録しておく（日付・前半後半ごと）
+    const dataRef = useRef(null);
+    dataRef.current = data;
+    const undoRef = useRef({});
+    const [undoCount, setUndoCount] = useState(0);
+    useEffect(() => setUndoCount((undoRef.current[date] || []).length), [date]);
+    const write = useCallback(p => {
         setData(d => deepMerge(d || emptyDay(), p));
         if (USE_FIREBASE) {
             db.collection(COLLECTION).doc(date).set({
@@ -232,7 +240,32 @@ function useDay(date, user) {
             catch { }
         }
     }, [date, user]);
-    return { data, patch, status };
+    const patch = useCallback((path, val) => {
+        const p = nest(path, val);
+        const prevOf = (cur, chg) => {
+            const out = {};
+            for (const k of Object.keys(chg)) {
+                const c = cur ? cur[k] : undefined;
+                out[k] = isPlain(chg[k]) ? prevOf(c, chg[k]) : (c === undefined ? "" : c);
+            }
+            return out;
+        };
+        const stack = undoRef.current[date] || (undoRef.current[date] = []);
+        stack.push(prevOf(dataRef.current || emptyDay(), p));
+        if (stack.length > 50)
+            stack.shift();
+        setUndoCount(stack.length);
+        write(p);
+    }, [date, write]);
+    const undo = useCallback(() => {
+        const stack = undoRef.current[date] || [];
+        const prev = stack.pop();
+        setUndoCount(stack.length);
+        if (prev)
+            write(prev);
+        return !!prev;
+    }, [date, write]);
+    return { data, patch, status, undo, canUndo: undoCount > 0 };
 }
 /* ---------- 入力部品（入力中は他人の更新で上書きされない） ---------- */
 function Field({ value, onCommit, as, ...rest }) {
@@ -409,13 +442,14 @@ function Board({ user }) {
     const [half, setHalf] = useState(curHalf());
     const go = dir => { const [d, h] = stepSlot(date, half, dir); setDate(d); setHalf(h); };
     const isNow = date === today() && half === curHalf();
+    const [toast, setToast] = useState("");
     const [tab, setTab] = useState(() => { try {
         return localStorage.getItem("asc-ship-tab") || "wh";
     }
     catch {
         return "wh";
     } });
-    const { data, patch, status } = useDay(`${date}_${half}`, user);
+    const { data, patch, status, undo, canUndo } = useDay(`${date}_${half}`, user);
     useEffect(() => { try {
         localStorage.setItem("asc-ship-tab", tab);
     }
@@ -433,6 +467,10 @@ function Board({ user }) {
         React.createElement("header", null,
             React.createElement("div", { className: "hrow" },
                 React.createElement("h1", null, "ASC\u5317\u5927\u962A \u30A2\u30DE\u30BE\u30F3\u767A\u9001\u72B6\u6CC1"),
+                React.createElement("button", { className: "undo", disabled: !canUndo, onClick: () => { if (undo()) {
+                        setToast("1つ前の状態に戻しました");
+                        setTimeout(() => setToast(""), 1500);
+                    } } }, "\u21B6 \u623B\u308B"),
                 React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status)),
             React.createElement("div", { className: "datebar" },
                 React.createElement("button", { className: "iconbtn", "aria-label": "\u524D\u3078", onClick: () => go(-1) }, "\u2039"),
@@ -470,7 +508,8 @@ function Board({ user }) {
                     React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "\u5F15\u304D\u7D99\u304E\u30FB\u6CE8\u610F\u70B9\u306A\u3069", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) })),
                 tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch }),
                 tab === "tr" && React.createElement(Trucks, { data: data, patch: patch }),
-                tab === "st" && React.createElement(Staff, { data: data, patch: patch }))));
+                tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
+        toast && React.createElement("div", { className: "toast" }, toast));
 }
 function App() {
     const [user, setUser] = useState(USE_FIREBASE ? undefined : { uid: "demo" });
