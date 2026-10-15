@@ -54,7 +54,8 @@ h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
 .inp{width:100%;padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:transparent}
 .inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
 textarea.inp{min-height:72px;resize:vertical}
-.badge{font-size:20px;font-weight:700;color:var(--accent);width:32px;text-align:center}
+.badge{font-size:20px;font-weight:700;color:var(--accent);min-width:32px;text-align:center;white-space:nowrap}
+.badge.sm{font-size:14px;width:44px;min-width:44px;margin-right:-4px}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;border-radius:99px;transition:width .2s}
 .upd{color:var(--accent);font-weight:600}
@@ -73,7 +74,7 @@ textarea.inp{min-height:72px;resize:vertical}
 .seg .s1{background:var(--mid-soft);color:var(--mid);font-weight:600}
 .seg .s2{background:var(--warn-soft);color:var(--warn);font-weight:600}
 .seg .s3{background:var(--done-soft);color:var(--done);font-weight:600}
-.tel{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:var(--accent);color:#fff;text-decoration:none;font-size:18px;flex:none}
+.tel{display:inline-flex;align-items:center;justify-content:center;width:36px;height:40px;border-radius:10px;background:var(--accent);color:#fff;text-decoration:none;font-size:18px;flex:none}
 .tel.off{background:var(--line);pointer-events:none}
 .err{color:var(--danger);font-size:13px;margin-top:8px}
 .demo{background:var(--warn-soft);color:var(--warn);font-size:12px;padding:8px 12px;border-radius:10px;margin-top:12px}
@@ -109,16 +110,16 @@ const COLLECTION = "kitaosaka_shipping"; // Firestoreのコレクション名（
 const TRUCKS = ["1", "2", "3", "4", "5"];
 const MARK = { "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧" };
 const FLOORS = [
-    { id: "east-3F", bldg: "東", floor: "3F" },
-    { id: "new-6F", bldg: "新", floor: "6F" },
-    { id: "new-5F", bldg: "新", floor: "5F" },
-    { id: "new-4F", bldg: "新", floor: "4F" },
-    { id: "new-3F", bldg: "新", floor: "3F" },
-    { id: "new-2F", bldg: "新", floor: "2F" },
+    { id: "east-3F", bldg: "east", floor: "最上階" }, // id は保存先の名前なので変更しない
+    { id: "new-6F", bldg: "new", floor: "6階" },
+    { id: "new-5F", bldg: "new", floor: "5階" },
+    { id: "new-4F", bldg: "new", floor: "4階" },
+    { id: "new-3F", bldg: "new", floor: "3階" },
+    { id: "new-2F", bldg: "new", floor: "2階" },
 ];
 const BLDGS = [
-    { id: "east", name: "東", label: "東 (茨木市宮島1-2-1)" }, // label：倉庫タブの見出し
-    { id: "new", name: "新", label: "新店 (茨木市宮島2-5-1新建屋)" },
+    { id: "east", name: "ヒガシ", label: "ヒガシ (茨木市宮島1-2-1)" }, // label：倉庫タブの見出し
+    { id: "new", name: "新店", label: "新店 (茨木市宮島2-5-1新建屋)" },
 ];
 const LOAD_STATES = ["未", "積込中", "積込後 残あり", "積込後 残なし"];
 const LOAD_LABEL = { "積込後 残なし": "積込完了 残なし" }; // 画面に出す文字（保存する値はそのまま）
@@ -317,10 +318,10 @@ function Warehouse({ data, patch }) {
     const [ask, setAsk] = useState(null); // 残りパレット数を聞いているフロア
     const askFloor = ask && FLOORS.find(f => f.id === ask);
     return React.createElement(React.Fragment, null,
-        askFloor && React.createElement(RemainDialog, { floorName: `${askFloor.bldg}${askFloor.floor}`, initial: data.floors[ask].remain, onCancel: () => setAsk(null), onOk: n => { const t = nowHM(); patch(`floors.${ask}`, { loading: "積込後 残あり", remain: n, loadingAt: t, pallets: n, palletsAt: t }); setAsk(null); } }),
+        askFloor && React.createElement(RemainDialog, { floorName: `${BLDGS.find(b => b.id === askFloor.bldg).name} ${askFloor.floor}`, initial: data.floors[ask].remain, onCancel: () => setAsk(null), onOk: n => { const t = nowHM(); patch(`floors.${ask}`, { loading: "積込後 残あり", remain: n, loadingAt: t, pallets: n, palletsAt: t }); setAsk(null); } }),
         BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
             React.createElement("div", { className: "sec" }, b.label),
-            FLOORS.filter(f => f.bldg === b.name).map(f => {
+            FLOORS.filter(f => f.bldg === b.id).map(f => {
                 const fl = data.floors[f.id];
                 const base = `floors.${f.id}`;
                 const tog = n => patch(base, { [`input${n}`]: !fl[`input${n}`], [`input${n}At`]: fl[`input${n}`] ? "" : nowHM() });
@@ -380,7 +381,7 @@ function Staff({ data, patch }) {
             const tel = (s.tel || "").replace(/[^\d+]/g, "");
             return React.createElement("div", { className: "card", key: b.id },
                 React.createElement("div", { className: "row" },
-                    React.createElement("div", { className: "badge" }, b.name),
+                    React.createElement("div", { className: "badge" + (b.name.length > 1 ? " sm" : "") }, b.name),
                     React.createElement("div", { className: "fld", style: { flex: 1 } },
                         React.createElement("span", { className: "lbl" }, "\u62C5\u5F53\u8005"),
                         React.createElement(Field, { value: s.name, placeholder: "\u6C0F\u540D", onCommit: v => patch(`staff.${b.id}`, { name: v, at: nowHM() }) })),
