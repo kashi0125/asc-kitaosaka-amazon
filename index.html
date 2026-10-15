@@ -94,8 +94,8 @@ textarea.inp.memo{min-height:44px;background:var(--bg);font-size:14px}
 .tel.off{background:var(--line);pointer-events:none}
 .err{color:var(--danger);font-size:13px;margin-top:8px}
 .demo{background:var(--warn-soft);color:var(--warn);font-size:12px;padding:8px 12px;border-radius:10px;margin-top:12px}
-.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
-.modal{background:var(--card);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
+.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:50}
+.modal{background:var(--card);width:100%;max-width:480px;border-radius:0 0 18px 18px;padding:calc(16px + env(safe-area-inset-top)) 16px 16px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
 .modal h2{font-size:17px;margin:0 0 4px}
 .modal .big{font-size:28px;text-align:center;padding:10px;width:100%;border:1px solid var(--line);border-radius:12px;background:transparent}
 .modal .btns{display:flex;gap:10px;margin-top:14px}
@@ -126,7 +126,7 @@ const COLLECTION = "kitaosaka_shipping"; // Firestoreのコレクション名（
 const TRUCKS = ["1", "2", "3", "4", "5"];
 const MARK = { "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧" };
 const FLOORS = [
-    { id: "east-3F", bldg: "east", floor: "ヒガシ" }, // id は保存先の名前なので変更しない
+    { id: "east-3F", bldg: "east", floor: "東" }, // id は保存先の名前なので変更しない
     { id: "new-6F", bldg: "new", floor: "6階" },
     { id: "new-5F", bldg: "new", floor: "5階" },
     { id: "new-4F", bldg: "new", floor: "4階" },
@@ -314,7 +314,7 @@ function FloorPicker({ tr, onChange }) {
         };
         return React.createElement("div", { className: "frow", key: r.key },
             React.createElement("span", { className: "flbl" }, r.label),
-            React.createElement("div", { className: "fchips" }, FLOORS.map(f => React.createElement("button", { key: f.id, className: "fchip " + (isOn(f.id) ? r.cls : ""), onClick: () => toggle(f.id) }, f.bldg === "east" ? "東" : f.floor))));
+            React.createElement("div", { className: "fchips" }, FLOORS.map(f => React.createElement("button", { key: f.id, className: "fchip " + (isOn(f.id) ? r.cls : ""), onClick: () => toggle(f.id) }, f.floor))));
     }));
 }
 function Trucks({ data, patch, slot }) {
@@ -378,7 +378,7 @@ function RemainDialog({ floorName, initial, onOk, onCancel }) {
                 "\u6B8B\u308A\u306E\u30D1\u30EC\u30C3\u30C8\u6570\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
                 React.createElement("br", null),
                 "\u3053\u306E\u6570\u304C\u300C\u672A\u7A4D\u8F09\u7269\u91CF\u300D\u306B\u3082\u53CD\u6620\u3055\u308C\u307E\u3059\u3002"),
-            React.createElement("input", { className: "big", type: "number", inputMode: "numeric", autoFocus: true, value: v, placeholder: "0", onChange: e => { setV(e.target.value); setErr(""); }, onKeyDown: e => e.key === "Enter" && ok() }),
+            React.createElement("input", { className: "big", type: "number", inputMode: "numeric", enterKeyHint: "done", autoFocus: true, value: v, placeholder: "0", onChange: e => { setV(e.target.value); setErr(""); }, onKeyDown: e => e.key === "Enter" && ok() }),
             err && React.createElement("div", { className: "err" }, err),
             React.createElement("div", { className: "btns" },
                 React.createElement("button", { className: "cancel", onClick: onCancel }, "\u30AD\u30E3\u30F3\u30BB\u30EB"),
