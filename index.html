@@ -70,6 +70,8 @@ textarea.inp{min-height:72px;resize:vertical}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:1}
 .seg button{flex:1;border:0;background:transparent;padding:6px 2px;min-height:44px;cursor:pointer;font-size:13px;line-height:1.25}
 .seg button+button{border-left:1px solid var(--line)}
+.seg.compact button{min-height:36px;padding:4px 2px}
+.seg .on{background:var(--accent-soft);color:var(--accent);font-weight:700}
 .seg .s0{background:var(--line);font-weight:600}
 .seg .s1{background:var(--mid-soft);color:var(--mid);font-weight:600}
 .seg .s2{background:var(--warn-soft);color:var(--warn);font-weight:600}
@@ -121,6 +123,7 @@ const BLDGS = [
     { id: "east", name: "ヒガシ", label: "ヒガシ (茨木市宮島1-2-1)" }, // label：倉庫タブの見出し
     { id: "new", name: "新店", label: "新店 (茨木市宮島2-5-1新建屋)" },
 ];
+const SIZES = ["小", "中", "大"];
 const LOAD_STATES = ["未", "積込中", "積込後 残あり", "積込後 残なし"];
 const LOAD_LABEL = { "積込後 残なし": "積込完了 残なし" }; // 画面に出す文字（保存する値はそのまま）
 const LOADED = ["積込後 残なし"]; // 「積込完了フロア」に数える状態
@@ -140,7 +143,7 @@ function emptyDay() {
     const trucks = {};
     TRUCKS.forEach(t => trucks[t] = { plate: "", maxT: "", load: "", at: "" });
     const floors = {};
-    FLOORS.forEach(f => floors[f.id] = { pallets: "", palletsAt: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未", loadingAt: "", remain: "" });
+    FLOORS.forEach(f => floors[f.id] = { pallets: "", palletsAt: "", size: "", sizeAt: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未", loadingAt: "", remain: "" });
     const staff = {};
     BLDGS.forEach(b => staff[b.id] = { name: "", tel: "", at: "" });
     return { trucks, floors, staff, notes: "", notesAt: "" };
@@ -348,6 +351,13 @@ function Warehouse({ data, patch }) {
                                     up.remain = String(num(v));
                                 patch(base, up);
                             } })),
+                    React.createElement("span", { className: "lbl" },
+                        "\u30B5\u30A4\u30BA\u611F",
+                        fl.sizeAt && React.createElement("span", { className: "upd" },
+                            "\u3000",
+                            fl.sizeAt,
+                            " \u66F4\u65B0")),
+                    React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
                     React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
                     React.createElement("div", { className: "row", style: { marginBottom: 10 } }, [1, 2].map(n => React.createElement("button", { key: n, className: "toggle" + (fl[`input${n}`] ? " on" : ""), onClick: () => tog(n) },
                         n,
