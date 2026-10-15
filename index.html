@@ -33,6 +33,15 @@ header{position:sticky;top:0;z-index:10;background:var(--bg);padding:12px 16px 8
 h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-width:0;white-space:nowrap}
 .undo{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--ink)}
 .undo:disabled{opacity:.35;cursor:default}
+.fpick{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.frow{display:flex;align-items:center;gap:6px}
+.flbl{font-size:11px;color:var(--sub);width:44px;flex:none;white-space:nowrap}
+.fgrp{font-size:10px;color:var(--sub)}
+.fchips{display:flex;gap:4px;flex:1;min-width:0}
+.fchip{flex:1;min-width:0;border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 0;font-size:12px;cursor:pointer;white-space:nowrap}
+.fchip.fc-cur{background:var(--mid-soft);border-color:var(--mid);color:var(--mid);font-weight:700}
+.fchip.fc-plan{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
+.fchip.fc-done{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:700}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:13px;z-index:60}
 .status{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .status.err{background:var(--warn-soft);color:var(--danger)}
@@ -146,7 +155,7 @@ const { useState, useEffect, useRef, useCallback, useMemo } = React;
 /* ---------- データ ---------- */
 function emptyDay() {
     const trucks = {};
-    TRUCKS.forEach(t => trucks[t] = { plate: "", maxT: "", load: "", at: "" });
+    TRUCKS.forEach(t => trucks[t] = { plate: "", maxT: "", load: "", at: "", cur: "", plan: [], done: [] });
     const floors = {};
     FLOORS.forEach(f => floors[f.id] = { pallets: "", palletsAt: "", size: "", sizeAt: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未", loadingAt: "", remain: "" });
     const staff = {};
@@ -287,6 +296,27 @@ function loadColor(p) { if (p > 100)
     return "var(--danger)"; if (p >= 90)
     return "var(--done)"; if (p >= 50)
     return "var(--mid)"; return "var(--warn)"; }
+// トラックごとのフロア表示：現在地（1つ）・積込予定（複数）・積込済（複数）
+const FLOOR_ROWS = [
+    { key: "cur", label: "現在地", multi: false, cls: "fc-cur" },
+    { key: "plan", label: "積込予定", multi: true, cls: "fc-plan" },
+    { key: "done", label: "積込済", multi: true, cls: "fc-done" },
+];
+function FloorPicker({ tr, onChange }) {
+    return React.createElement("div", { className: "fpick" }, FLOOR_ROWS.map(r => {
+        const sel = r.multi ? (Array.isArray(tr[r.key]) ? tr[r.key] : []) : tr[r.key];
+        const isOn = id => r.multi ? sel.includes(id) : sel === id;
+        const toggle = id => {
+            if (!r.multi)
+                return onChange({ [r.key]: sel === id ? "" : id });
+            const next = isOn(id) ? sel.filter(x => x !== id) : FLOORS.map(f => f.id).filter(x => x === id || sel.includes(x));
+            onChange({ [r.key]: next });
+        };
+        return React.createElement("div", { className: "frow", key: r.key },
+            React.createElement("span", { className: "flbl" }, r.label),
+            React.createElement("div", { className: "fchips" }, FLOORS.map(f => React.createElement("button", { key: f.id, className: "fchip " + (isOn(f.id) ? r.cls : ""), onClick: () => toggle(f.id) }, f.bldg === "east" ? "東" : f.floor))));
+    }));
+}
 function Trucks({ data, patch, slot }) {
     return React.createElement(React.Fragment, null,
         React.createElement("div", { className: "sec" }, "\u30C8\u30E9\u30C3\u30AF"),
@@ -317,6 +347,7 @@ function Trucks({ data, patch, slot }) {
                             tr.at,
                             " \u66F4\u65B0")),
                     React.createElement("span", null, num(tr.maxT) > 0 && tr.load !== "" ? `約 ${tons.toFixed(1)}t / ${num(tr.maxT)}t` : "")),
+                React.createElement(FloorPicker, { tr: tr, onChange: ch => patch(`trucks.${t}`, { ...ch, at: nowHM() }) }),
                 React.createElement(PrivateMemo, { storeKey: `asc-memo-${slot}-truck${t}` }));
         }));
 }
@@ -408,7 +439,7 @@ function Warehouse({ data, patch, slot }) {
                                 patch(base, up);
                             } })),
                     React.createElement("span", { className: "lbl" },
-                        "\u30B5\u30A4\u30BA\u611F",
+                        "\u8377\u7269\u306E\u30B5\u30A4\u30BA\u611F",
                         fl.sizeAt && React.createElement("span", { className: "upd" },
                             "\u3000",
                             fl.sizeAt,
