@@ -140,6 +140,14 @@ const BLDGS = [
 const SIZES = ["小", "中", "大"];
 const LOAD_STATES = ["未", "積込中", "積込後 残あり", "積込後 残なし"];
 const LOAD_LABEL = { "積込後 残なし": "積込完了 残なし" }; // 画面に出す文字（保存する値はそのまま）
+// 後半だけ：この時刻までは「積込後 追加待ち」、過ぎたら「積込完了 残なし」と表示する
+const WAIT_UNTIL = { east: "17:45", new: "16:30" };
+const cutoffDate = (date, bldg) => { const [h, m] = WAIT_UNTIL[bldg].split(":").map(Number); const d = new Date(date + "T00:00:00"); d.setHours(h, m + 1, 0, 0); return d; };
+function loadLabel(s, bldg, date, half) {
+    if (s === "積込後 残なし" && half === "pm" && WAIT_UNTIL[bldg] && new Date() < cutoffDate(date, bldg))
+        return "積込後 追加待ち";
+    return LOAD_LABEL[s] || s;
+}
 const LOADED = ["積込後 残なし"]; // 「積込完了フロア」に数える状態
 const HALVES = [{ id: "am", name: "前半" }, { id: "pm", name: "後半" }];
 const SWITCH_HOUR = 14; // この時刻（時）以降に開くと最初から「後半」を表示
@@ -404,7 +412,7 @@ function PrivateMemo({ storeKey }) {
             React.createElement("span", { className: "private" }, "\uD83D\uDD12 \u81EA\u5206\u3060\u3051\u306B\u8868\u793A")),
         React.createElement("textarea", { className: "inp memo", value: v, placeholder: "\u3053\u306E\u7AEF\u672B\u306B\u3060\u3051\u4FDD\u5B58\u3055\u308C\u307E\u3059", onChange: e => save(e.target.value) }));
 }
-function Warehouse({ data, patch, slot }) {
+function Warehouse({ data, patch, slot, date, half }) {
     const [ask, setAsk] = useState(null); // 残りパレット数を聞いているフロア
     const askFloor = ask && FLOORS.find(f => f.id === ask);
     return React.createElement(React.Fragment, null,
@@ -465,7 +473,7 @@ function Warehouse({ data, patch, slot }) {
                             patch(base, s === "積込後 残なし"
                                 ? { loading: s, loadingAt: t, remain: "", pallets: "0", palletsAt: t }
                                 : { loading: s, loadingAt: t, remain: "" });
-                        } }, (LOAD_LABEL[s] || s).split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
+                        } }, loadLabel(s, f.bldg, date, half).split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
                         j > 0 && React.createElement("br", null),
                         w))))),
                     React.createElement(PrivateMemo, { storeKey: `asc-memo-${slot}-${f.id}` }));
@@ -497,6 +505,21 @@ function Board({ user }) {
     const [half, setHalf] = useState(curHalf());
     const go = dir => { const [d, h] = stepSlot(date, half, dir); setDate(d); setHalf(h); };
     const isNow = date === today() && half === curHalf();
+    // 「追加待ち」→「残なし」の切り替え時刻に1回だけ画面を描き直す（常時の見張りはしない）
+    const [, redraw] = useState(0);
+    useEffect(() => {
+        if (half !== "pm")
+            return;
+        const now = Date.now();
+        const next = Object.keys(WAIT_UNTIL).map(b => cutoffDate(date, b).getTime()).filter(t => t > now).sort((a, b) => a - b)[0];
+        const ids = [];
+        if (next && next - now < 86400000)
+            ids.push(setTimeout(() => redraw(n => n + 1), next - now + 500));
+        const onVis = () => { if (document.visibilityState === "visible")
+            redraw(n => n + 1); };
+        document.addEventListener("visibilitychange", onVis);
+        return () => { ids.forEach(clearTimeout); document.removeEventListener("visibilitychange", onVis); };
+    });
     const [toast, setToast] = useState("");
     const [tab, setTab] = useState(() => { try {
         return localStorage.getItem("asc-ship-tab") || "wh";
@@ -561,7 +584,7 @@ function Board({ user }) {
                         " \u66F4\u65B0")),
                 React.createElement("div", { className: "card" },
                     React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "(\u3053\u3053\u306B\u5165\u529B\u3057\u305F\u3053\u3068\u306F\u95B2\u89A7\u8005\u306B\u5171\u6709\u3055\u308C\u307E\u3059)", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) })),
-                tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}` }),
+                tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}`, date: date, half: half }),
                 tab === "tr" && React.createElement(Trucks, { data: data, patch: patch, slot: `${date}_${half}` }),
                 tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
         toast && React.createElement("div", { className: "toast" }, toast));
