@@ -66,6 +66,9 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .inp{width:100%;padding:9px 8px;border:1px solid var(--line);border-radius:9px;background:transparent}
 .inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .private{font-size:10px;color:var(--sub);margin-left:4px}
+.inp.plate{padding-left:7px;padding-right:5px}
+.inp.plate::placeholder{font-size:12px;letter-spacing:-.02em}
+.trow .lbl{white-space:nowrap;letter-spacing:-.03em}
 textarea.inp{min-height:72px;resize:vertical}
 textarea.inp.memo{min-height:44px;background:var(--bg);font-size:14px}
 .badge{font-size:20px;font-weight:700;color:var(--accent);min-width:32px;text-align:center;white-space:nowrap}
@@ -203,8 +206,6 @@ function stepSlot(date, half, dir) {
         return half === "am" ? [date, "pm"] : [shift(date, 1), "am"];
     return half === "pm" ? [date, "am"] : [shift(date, -1), "pm"];
 }
-// 車番：数字4桁だけ入力されたら「12-34」の形に整える
-const fmtPlate = v => { const d = (v || "").replace(/\D/g, ""); return (/^\d{4}$/.test(d) && !/-/.test(v)) ? d.slice(0, 2) + "-" + d.slice(2) : v; };
 const nowHM = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 function useDay(date, user) {
     const [data, setData] = useState(null);
@@ -333,11 +334,11 @@ function Trucks({ data, patch, slot }) {
             const pct = num(tr.load);
             const tons = num(tr.maxT) * pct / 100;
             return React.createElement("div", { className: "card", key: t },
-                React.createElement("div", { className: "row" },
+                React.createElement("div", { className: "row trow" },
                     React.createElement("div", { className: "badge" }, MARK[t] || t),
-                    React.createElement("div", { className: "fld", style: { flex: 2 } },
-                        React.createElement("span", { className: "lbl" }, "\u8ECA\u756A"),
-                        React.createElement(Field, { value: tr.plate, placeholder: "12-34", type: "text", inputMode: "tel", autoComplete: "off", onCommit: v => patch(`trucks.${t}`, { plate: fmtPlate(v), at: nowHM() }) })),
+                    React.createElement("div", { className: "fld", style: { flex: 2.6 } },
+                        React.createElement("span", { className: "lbl" }, "\u8ECA\u756A\u306A\u3069"),
+                        React.createElement(Field, { value: tr.plate, placeholder: "12-34\u3001\u3007\u3007\u904B\u9001\u306A\u3069", type: "text", autoComplete: "off", className: "inp plate", onCommit: v => patch(`trucks.${t}`, { plate: v, at: nowHM() }) })),
                     React.createElement("div", { className: "fld" },
                         React.createElement("span", { className: "lbl" }, "\u6700\u5927\u7A4D\u8F09(t)"),
                         React.createElement(Field, { value: tr.maxT, type: "number", inputMode: "decimal", step: "0.1", onCommit: v => patch(`trucks.${t}`, { maxT: v, at: nowHM() }) })),
