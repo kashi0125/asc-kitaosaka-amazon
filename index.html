@@ -39,6 +39,8 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .fgrp{font-size:10px;color:var(--sub)}
 .fchips{display:flex;gap:4px;flex:1;min-width:0}
 .fchip{flex:1;min-width:0;border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 0;font-size:12px;cursor:pointer;white-space:nowrap}
+.donechips{margin-top:8px}
+.donechips .fchip{cursor:default;text-align:center;display:block}
 .fchip.fc-cur{background:var(--mid-soft);border-color:var(--mid);color:var(--mid);font-weight:700}
 .fchip.fc-plan{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
 .fchip.fc-done{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:700}
@@ -54,7 +56,7 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .tabs{max-width:728px;margin:10px auto 0;display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
 .tabs button{flex:1;border:0;background:none;padding:8px 4px;border-radius:9px;cursor:pointer;font-size:14px;color:var(--sub)}
 .tabs button.on{background:var(--accent);color:#fff;font-weight:600}
-.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}
+.summary{display:grid;grid-template-columns:1fr;gap:8px;margin:14px 0}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
 .stat b{display:block;font-size:20px}
 .stat span{font-size:11px;color:var(--sub)}
@@ -67,8 +69,9 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
 .private{font-size:10px;color:var(--sub);margin-left:4px}
 .inp.plate{padding-left:7px;padding-right:5px}
-.inp.plate::placeholder{font-size:12px;letter-spacing:-.02em}
-.trow .lbl{white-space:nowrap;letter-spacing:-.03em}
+.inp.plate::placeholder{font-size:11.5px;letter-spacing:-.03em}
+.trow{gap:6px}
+.trow .lbl{white-space:nowrap;letter-spacing:-.03em;font-size:10.5px}
 textarea.inp{min-height:72px;resize:vertical}
 textarea.inp.memo{min-height:44px;background:var(--bg);font-size:14px}
 .badge{font-size:20px;font-weight:700;color:var(--accent);min-width:32px;text-align:center;white-space:nowrap}
@@ -305,11 +308,10 @@ function loadColor(p) { if (p > 100)
     return "var(--danger)"; if (p >= 90)
     return "var(--done)"; if (p >= 50)
     return "var(--mid)"; return "var(--warn)"; }
-// トラックごとのフロア表示：現在地（1つ）・積込予定（複数）・積込済（複数）
+// トラックごとのフロア表示：現在地（1つ）・積込予定（複数）
 const FLOOR_ROWS = [
     { key: "cur", label: "現在地", multi: false, cls: "fc-cur" },
     { key: "plan", label: "積込予定", multi: true, cls: "fc-plan" },
-    { key: "done", label: "積込済", multi: true, cls: "fc-done" },
 ];
 function FloorPicker({ tr, onChange }) {
     return React.createElement("div", { className: "fpick" }, FLOOR_ROWS.map(r => {
@@ -336,15 +338,15 @@ function Trucks({ data, patch, slot }) {
             return React.createElement("div", { className: "card", key: t },
                 React.createElement("div", { className: "row trow" },
                     React.createElement("div", { className: "badge" }, MARK[t] || t),
-                    React.createElement("div", { className: "fld", style: { flex: 2.6 } },
-                        React.createElement("span", { className: "lbl" }, "\u8ECA\u756A\u306A\u3069"),
-                        React.createElement(Field, { value: tr.plate, placeholder: "12-34\u3001\u3007\u3007\u904B\u9001\u306A\u3069", type: "text", autoComplete: "off", className: "inp plate", onCommit: v => patch(`trucks.${t}`, { plate: v, at: nowHM() }) })),
-                    React.createElement("div", { className: "fld" },
+                    React.createElement("div", { className: "fld", style: { flex: "0 0 58px" } },
                         React.createElement("span", { className: "lbl" }, "\u6700\u5927\u7A4D\u8F09(t)"),
                         React.createElement(Field, { value: tr.maxT, type: "number", inputMode: "decimal", step: "0.1", onCommit: v => patch(`trucks.${t}`, { maxT: v, at: nowHM() }) })),
-                    React.createElement("div", { className: "fld" },
+                    React.createElement("div", { className: "fld", style: { flex: "0 0 68px" } },
                         React.createElement("span", { className: "lbl" }, "\u7A4D\u8F09\u73FE\u72B6(\uFF05)"),
-                        React.createElement(Field, { value: tr.load, type: "number", inputMode: "numeric", onCommit: v => patch(`trucks.${t}`, { load: v, at: nowHM() }) }))),
+                        React.createElement(Field, { value: tr.load, type: "number", inputMode: "numeric", onCommit: v => patch(`trucks.${t}`, { load: v, at: nowHM() }) })),
+                    React.createElement("div", { className: "fld", style: { flex: 1 } },
+                        React.createElement("span", { className: "lbl" }, "\u8ECA\u306E\u7279\u5FB4(\u8ECA\u756A\u306A\u3069)"),
+                        React.createElement(Field, { value: tr.plate, placeholder: "12-34\u3001\u3007\u3007\u904B\u9001\u306A\u3069", type: "text", autoComplete: "off", className: "inp plate", onCommit: v => patch(`trucks.${t}`, { plate: v, at: nowHM() }) }))),
                 React.createElement("div", { className: "bar" },
                     React.createElement("i", { style: { width: Math.min(pct, 100) + "%", background: loadColor(pct) } })),
                 React.createElement("div", { className: "small", style: { marginTop: 4, display: "flex", justifyContent: "space-between" } },
@@ -359,39 +361,6 @@ function Trucks({ data, patch, slot }) {
                 React.createElement(FloorPicker, { tr: tr, onChange: ch => patch(`trucks.${t}`, { ...ch, at: nowHM() }) }),
                 React.createElement(PrivateMemo, { storeKey: `asc-memo-${slot}-truck${t}` }));
         }));
-}
-function Stepper({ value, onChange }) {
-    const n = num(value);
-    return React.createElement("div", { className: "stepper" },
-        React.createElement("button", { onClick: () => onChange(String(Math.max(0, n - 1))) }, "\u2212"),
-        React.createElement(Field, { value: value, type: "number", inputMode: "numeric", placeholder: "\u672A", onCommit: onChange }),
-        React.createElement("button", { onClick: () => onChange(String(n + 1)) }, "\uFF0B"));
-}
-function RemainDialog({ floorName, initial, onOk, onCancel }) {
-    const [v, setV] = useState(initial || "");
-    const [err, setErr] = useState("");
-    const ok = () => {
-        const n = parseInt(v, 10);
-        if (!(n >= 1)) {
-            setErr("1以上の数を入力してください（残りがなければ「積込完了 残なし」を選んでください）");
-            return;
-        }
-        onOk(String(n));
-    };
-    return React.createElement("div", { className: "modalbg", onClick: onCancel },
-        React.createElement("div", { className: "modal", onClick: e => e.stopPropagation() },
-            React.createElement("h2", null,
-                floorName,
-                "\uFF1A\u7A4D\u8FBC\u5F8C \u6B8B\u3042\u308A"),
-            React.createElement("p", { className: "small", style: { margin: "0 0 12px" } },
-                "\u6B8B\u308A\u306E\u30D1\u30EC\u30C3\u30C8\u6570\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-                React.createElement("br", null),
-                "\u3053\u306E\u6570\u304C\u300C\u672A\u7A4D\u8F09\u7269\u91CF\u300D\u306B\u3082\u53CD\u6620\u3055\u308C\u307E\u3059\u3002"),
-            React.createElement("input", { className: "big", type: "number", inputMode: "numeric", enterKeyHint: "done", autoFocus: true, value: v, placeholder: "0", onChange: e => { setV(e.target.value); setErr(""); }, onKeyDown: e => e.key === "Enter" && ok() }),
-            err && React.createElement("div", { className: "err" }, err),
-            React.createElement("div", { className: "btns" },
-                React.createElement("button", { className: "cancel", onClick: onCancel }, "\u30AD\u30E3\u30F3\u30BB\u30EB"),
-                React.createElement("button", { className: "ok", onClick: ok }, "\u6C7A\u5B9A"))));
 }
 // 自分だけのメモ：Firebaseには送らず、この端末の中だけに保存する
 function PrivateMemo({ storeKey }) {
@@ -414,71 +383,42 @@ function PrivateMemo({ storeKey }) {
         React.createElement("textarea", { className: "inp memo", value: v, placeholder: "\u3053\u306E\u7AEF\u672B\u306B\u3060\u3051\u4FDD\u5B58\u3055\u308C\u307E\u3059", onChange: e => save(e.target.value) }));
 }
 function Warehouse({ data, patch, slot, date, half }) {
-    const [ask, setAsk] = useState(null); // 残りパレット数を聞いているフロア
-    const askFloor = ask && FLOORS.find(f => f.id === ask);
-    return React.createElement(React.Fragment, null,
-        askFloor && React.createElement(RemainDialog, { floorName: askFloor.bldg === "east" ? askFloor.floor : `${BLDGS.find(b => b.id === askFloor.bldg).name} ${askFloor.floor}`, initial: data.floors[ask].remain, onCancel: () => setAsk(null), onOk: n => { const t = nowHM(); patch(`floors.${ask}`, { loading: "積込後 残あり", remain: n, loadingAt: t, pallets: n, palletsAt: t }); setAsk(null); } }),
-        BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
-            React.createElement("div", { className: "sec" }, b.label),
-            FLOORS.filter(f => f.bldg === b.id).map(f => {
-                const fl = data.floors[f.id];
-                const base = `floors.${f.id}`;
-                const tog = n => patch(base, { [`input${n}`]: !fl[`input${n}`], [`input${n}At`]: fl[`input${n}`] ? "" : nowHM() });
-                return React.createElement("div", { className: "card", key: f.id },
-                    React.createElement("div", { className: "floorhead" },
-                        React.createElement("div", { className: "floor" }, f.floor),
-                        React.createElement("div", { style: { flex: 1 }, className: "small" },
-                            "\u672A\u7A4D\u8F09\u7269\u91CF",
-                            React.createElement("span", { style: { whiteSpace: "nowrap" } }, "\uFF08\u30D1\u30EC\u30C3\u30C8\u6570\uFF09"),
-                            fl.palletsAt && React.createElement(React.Fragment, null,
-                                React.createElement("br", null),
-                                React.createElement("span", { className: "upd" },
-                                    fl.palletsAt,
-                                    " \u66F4\u65B0"))),
-                        React.createElement(Stepper, { value: fl.pallets, onChange: v => {
-                                if (v === fl.pallets)
-                                    return;
-                                const t = nowHM(), up = { pallets: v, palletsAt: t };
-                                // 0 に減らしたら「積込後 残なし」に自動で切り替える
-                                if (v !== "" && num(v) === 0 && num(fl.pallets) > 0 && fl.loading !== "積込後 残なし")
-                                    Object.assign(up, { loading: "積込後 残なし", loadingAt: t, remain: "" });
-                                // 「残あり」のときは残り数も合わせておく
-                                else if (fl.loading === "積込後 残あり" && num(v) > 0)
-                                    up.remain = String(num(v));
-                                patch(base, up);
-                            } })),
-                    React.createElement("span", { className: "lbl" },
-                        "\u8377\u7269\u306E\u30B5\u30A4\u30BA\u611F",
-                        fl.sizeAt && React.createElement("span", { className: "upd" },
-                            "\u3000",
-                            fl.sizeAt,
-                            " \u66F4\u65B0")),
-                    React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
-                    React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
-                    React.createElement("div", { className: "row", style: { marginBottom: 10 } }, [1, 2].map(n => React.createElement("button", { key: n, className: "toggle" + (fl[`input${n}`] ? " on" : ""), onClick: () => tog(n) },
-                        n,
-                        "\u56DE\u76EE ",
-                        fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"))),
-                    React.createElement("span", { className: "lbl" },
-                        "\u7A4D\u8FBC\u72B6\u6CC1",
-                        fl.loadingAt && React.createElement("span", { className: "upd" },
-                            "\u3000",
-                            fl.loadingAt,
-                            " \u66F4\u65B0")),
-                    React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => {
-                            if (s === "積込後 残あり")
-                                return setAsk(f.id);
-                            if (fl.loading === s)
-                                return;
-                            const t = nowHM();
-                            patch(base, s === "積込後 残なし"
-                                ? { loading: s, loadingAt: t, remain: "", pallets: "0", palletsAt: t }
-                                : { loading: s, loadingAt: t, remain: "" });
-                        } }, loadLabel(s, f.bldg, date, half).split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
-                        j > 0 && React.createElement("br", null),
-                        w))))),
-                    React.createElement(PrivateMemo, { storeKey: `asc-memo-${slot}-${f.id}` }));
-            }))));
+    return React.createElement(React.Fragment, null, BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
+        React.createElement("div", { className: "sec" }, b.label),
+        FLOORS.filter(f => f.bldg === b.id).map(f => {
+            const fl = data.floors[f.id];
+            const base = `floors.${f.id}`;
+            const tog = n => patch(base, { [`input${n}`]: !fl[`input${n}`], [`input${n}At`]: fl[`input${n}`] ? "" : nowHM() });
+            return React.createElement("div", { className: "card", key: f.id },
+                React.createElement("div", { className: "floorhead" },
+                    React.createElement("div", { className: "floor" }, f.floor)),
+                React.createElement("span", { className: "lbl" },
+                    "\u7269\u91CF",
+                    fl.sizeAt && React.createElement("span", { className: "upd" },
+                        "\u3000",
+                        fl.sizeAt,
+                        " \u66F4\u65B0")),
+                React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
+                React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
+                React.createElement("div", { className: "row", style: { marginBottom: 10 } }, [1, 2].map(n => React.createElement("button", { key: n, className: "toggle" + (fl[`input${n}`] ? " on" : ""), onClick: () => tog(n) },
+                    n,
+                    "\u56DE\u76EE ",
+                    fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"))),
+                React.createElement("span", { className: "lbl" },
+                    "\u7A4D\u8FBC\u72B6\u6CC1",
+                    fl.loadingAt && React.createElement("span", { className: "upd" },
+                        "\u3000",
+                        fl.loadingAt,
+                        " \u66F4\u65B0")),
+                React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => {
+                        if (fl.loading === s)
+                            return;
+                        patch(base, { loading: s, loadingAt: nowHM() });
+                    } }, loadLabel(s, f.bldg, date, half).split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
+                    j > 0 && React.createElement("br", null),
+                    w))))),
+                React.createElement(PrivateMemo, { storeKey: `asc-memo-${slot}-${f.id}` }));
+        }))));
 }
 function Staff({ data, patch }) {
     return React.createElement(React.Fragment, null,
@@ -569,14 +509,8 @@ function Board({ user }) {
             !data ? React.createElement("p", { className: "small", style: { marginTop: 20 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "summary" },
                     React.createElement("div", { className: "stat" },
-                        React.createElement("b", null, sum.pallets),
-                        React.createElement("span", null, "\u672A\u7A4D\u8F09\u30D1\u30EC\u30C3\u30C8\u7DCF\u6570")),
-                    React.createElement("div", { className: "stat" },
-                        React.createElement("b", null,
-                            sum.done,
-                            "/",
-                            FLOORS.length),
-                        React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2"))),
+                        React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2"),
+                        React.createElement("div", { className: "fchips donechips" }, FLOORS.map(f => React.createElement("span", { key: f.id, className: "fchip " + (LOADED.includes(data.floors[f.id].loading) ? "fc-done" : "") }, f.floor))))),
                 React.createElement("div", { className: "sec", style: { marginTop: 4 } },
                     "\u9023\u7D61\u4E8B\u9805",
                     data.notesAt && React.createElement("span", { className: "upd" },
