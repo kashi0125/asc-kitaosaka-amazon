@@ -73,6 +73,9 @@ h1{font-size:clamp(13px,3.7vw,16px);line-height:1.25;margin:0;flex:1;letter-spac
 .loccell.on .locfl{color:var(--mid);font-weight:700}
 .loctr{font-size:14px;letter-spacing:-.05em;line-height:1.25;color:var(--sub);display:flex;flex-wrap:wrap;justify-content:center;gap:0 2px;min-height:20px}
 .loccell.on .loctr{color:var(--mid);font-weight:700}
+.loctr{flex-direction:column;align-items:center}
+.trk{white-space:nowrap;line-height:1.3}
+.trk small{font-size:11px;margin-left:1px;letter-spacing:-.03em}
 .donechips .fchip{text-align:center}
 .modal .btns.three{flex-wrap:wrap}
 .modal .btns.three .ok{flex:1 1 40%}
@@ -803,7 +806,11 @@ function Board({ user }) {
                                 const here = TRUCKS.filter(t => data.trucks[t].cur === f.id);
                                 return React.createElement("div", { key: f.id, className: "loccell" + (here.length ? " on" : "") },
                                     React.createElement("div", { className: "locfl" }, f.floor),
-                                    React.createElement("div", { className: "loctr" }, here.length ? here.map(t => React.createElement("span", { key: t }, MARK[t] || t)) : "―"));
+                                    React.createElement("div", { className: "loctr" }, here.length ? here.map(t => { const mx = data.trucks[t].maxT; return React.createElement("span", { key: t, className: "trk" },
+                                        MARK[t] || t,
+                                        mx !== "" && mx != null && React.createElement("small", null,
+                                            mx,
+                                            "t")); }) : "―"));
                             })))),
                     React.createElement("div", { className: "sec", style: { marginTop: 4 } },
                         "\u9023\u7D61\u4E8B\u9805",
