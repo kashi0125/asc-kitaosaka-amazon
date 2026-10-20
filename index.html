@@ -222,7 +222,7 @@ function emptyDay() {
     const floors = {};
     FLOORS.forEach(f => floors[f.id] = { pallets: "", palletsAt: "", memo: "", memoAt: "", size: "", sizeAt: "", input1: false, input1At: "", input2: false, input2At: "", loading: "未", loadingAt: "", remain: "" });
     const staff = {};
-    BLDGS.forEach(b => staff[b.id] = { name: "", tel: "", at: "" });
+    BLDGS.forEach(b => staff[b.id] = { name: "", tel: "", at: "", cur: "" });
     return { trucks, floors, staff, notes: "", notesAt: "" };
 }
 const isPlain = o => o && typeof o === "object" && o.constructor === Object;
@@ -656,6 +656,9 @@ function Staff({ data, patch }) {
                         React.createElement("span", { className: "lbl" }, "\u9023\u7D61\u5148"),
                         React.createElement(Field, { value: s.tel, type: "tel", inputMode: "tel", placeholder: "070-7667-0000", onCommit: v => patch(`staff.${b.id}`, { tel: v, at: nowHM() }) })),
                     React.createElement("a", { className: "tel" + (tel ? "" : " off"), href: tel ? "tel:" + tel : undefined, "aria-label": "\u96FB\u8A71" }, "\uD83D\uDCDE")),
+                React.createElement("div", { className: "frow", style: { marginTop: 10 } },
+                    React.createElement("span", { className: "flbl" }, "\u73FE\u5728\u5730"),
+                    React.createElement("div", { className: "fchips" }, FLOORS.map(f => React.createElement("button", { key: f.id, className: "fchip " + (s.cur === f.id ? "fc-cur" : ""), onClick: () => patch(`staff.${b.id}`, { cur: s.cur === f.id ? "" : f.id, at: nowHM() }) }, f.floor)))),
                 s.at && React.createElement("div", { className: "upd", style: { marginTop: 6, fontSize: 12 } },
                     s.at,
                     " \u66F4\u65B0"));
