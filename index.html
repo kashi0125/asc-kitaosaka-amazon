@@ -30,8 +30,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px 32px}
 header{position:sticky;top:0;z-index:10;background:var(--bg);padding:12px 16px 8px;border-bottom:1px solid var(--line)}
 .hrow{max-width:728px;margin:0 auto;display:flex;align-items:center;gap:8px}
-h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-width:0;white-space:nowrap}
-.undo{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--ink)}
+h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-width:0;white-space:nowrap}
+.undo{border:1.5px solid var(--accent);background:var(--card);border-radius:99px;padding:7px 14px;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--accent);min-height:38px}
 .undo:disabled{opacity:.35;cursor:default}
 .fpick{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .frow{display:flex;align-items:center;gap:6px}
@@ -56,7 +56,7 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .fchip.fc-plan{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
 .fchip.fc-done{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:700}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:13px;z-index:60}
-.status{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.status{font-size:11px;padding:3px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .status.err{background:var(--warn-soft);color:var(--danger)}
 .datebar{max-width:728px;margin:8px auto 0;display:flex;gap:6px;align-items:center}
 .datebar input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:0}
@@ -399,7 +399,8 @@ function Warehouse({ data, patch, slot, date, half }) {
         FLOORS.filter(f => f.bldg === b.id).map(f => {
             const fl = data.floors[f.id];
             const base = `floors.${f.id}`;
-            const tog = n => patch(base, { [`input${n}`]: !fl[`input${n}`], [`input${n}At`]: fl[`input${n}`] ? "" : nowHM() });
+            // 端末入力：押すたびに時刻を最新に更新する（取り消しは「戻る」で）
+            const stamp = () => patch(base, { input1: true, input1At: nowHM() });
             return React.createElement("div", { className: "card", key: f.id },
                 React.createElement("div", { className: "floorhead" },
                     React.createElement("div", { className: "floor" }, f.floor)),
@@ -411,10 +412,8 @@ function Warehouse({ data, patch, slot, date, half }) {
                         " \u66F4\u65B0")),
                 React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
                 React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
-                React.createElement("div", { className: "row", style: { marginBottom: 10 } }, [1, 2].map(n => React.createElement("button", { key: n, className: "toggle" + (fl[`input${n}`] ? " on" : ""), onClick: () => tog(n) },
-                    n,
-                    "\u56DE\u76EE ",
-                    fl[`input${n}`] ? `✓ ${fl[`input${n}At`]}` : "未"))),
+                React.createElement("div", { className: "row", style: { marginBottom: 10 } },
+                    React.createElement("button", { className: "toggle" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 ? `✓ ${fl.input1At} 入力` : "未（タップで時刻を記録）")),
                 React.createElement("span", { className: "lbl" },
                     "\u7A4D\u8FBC\u72B6\u6CC1",
                     fl.loadingAt && React.createElement("span", { className: "upd" },
