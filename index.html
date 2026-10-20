@@ -40,7 +40,18 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .fchips{display:flex;gap:4px;flex:1;min-width:0}
 .fchip{flex:1;min-width:0;border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 0;font-size:12px;cursor:pointer;white-space:nowrap}
 .donechips{margin-top:8px}
-.donechips .fchip{cursor:default;text-align:center;display:block}
+.locgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px}
+.loccell{border:1px solid var(--line);border-radius:8px;text-align:center;padding:4px 0 5px;min-width:0}
+.loccell.on{background:var(--mid-soft);border-color:var(--mid)}
+.locfl{font-size:12px;color:var(--sub)}
+.loccell.on .locfl{color:var(--mid);font-weight:700}
+.loctr{font-size:14px;letter-spacing:-.05em;line-height:1.25;color:var(--sub);display:flex;flex-wrap:wrap;justify-content:center;gap:0 2px;min-height:20px}
+.loccell.on .loctr{color:var(--mid);font-weight:700}
+.donechips .fchip{text-align:center}
+.modal .btns.three{flex-wrap:wrap}
+.modal .btns.three .ok{flex:1 1 40%}
+.modal .btns.three .cancel{flex:1 1 100%;order:3}
+.modal .ok.warn{background:var(--warn)}
 .fchip.fc-cur{background:var(--mid-soft);border-color:var(--mid);color:var(--mid);font-weight:700}
 .fchip.fc-plan{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
 .fchip.fc-done{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:700}
@@ -59,7 +70,7 @@ h1{font-size:clamp(13px,3.9vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wid
 .summary{display:grid;grid-template-columns:1fr;gap:8px;margin:14px 0}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
 .stat b{display:block;font-size:20px}
-.stat span{font-size:11px;color:var(--sub)}
+.stat > span{font-size:11px;color:var(--sub)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
 .sec{font-size:13px;color:var(--sub);margin:18px 2px 8px;font-weight:600}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -462,6 +473,7 @@ function Board({ user }) {
         return () => { ids.forEach(clearTimeout); document.removeEventListener("visibilitychange", onVis); };
     });
     const [toast, setToast] = useState("");
+    const [askHome, setAskHome] = useState(null); // 「ホームに荷物は残っていますか？」を聞いているフロア
     const [tab, setTab] = useState(() => { try {
         return localStorage.getItem("asc-ship-tab") || "wh";
     }
@@ -510,7 +522,15 @@ function Board({ user }) {
                 React.createElement("div", { className: "summary" },
                     React.createElement("div", { className: "stat" },
                         React.createElement("span", null, "\u7A4D\u8FBC\u5B8C\u4E86\u30D5\u30ED\u30A2"),
-                        React.createElement("div", { className: "fchips donechips" }, FLOORS.map(f => React.createElement("span", { key: f.id, className: "fchip " + (LOADED.includes(data.floors[f.id].loading) ? "fc-done" : "") }, f.floor))))),
+                        React.createElement("div", { className: "fchips donechips" }, FLOORS.map(f => React.createElement("button", { key: f.id, className: "fchip " + (LOADED.includes(data.floors[f.id].loading) ? "fc-done" : ""), onClick: () => setAskHome(f.id) }, f.floor)))),
+                    React.createElement("div", { className: "stat" },
+                        React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730"),
+                        React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
+                            const here = TRUCKS.filter(t => data.trucks[t].cur === f.id);
+                            return React.createElement("div", { key: f.id, className: "loccell" + (here.length ? " on" : "") },
+                                React.createElement("div", { className: "locfl" }, f.floor),
+                                React.createElement("div", { className: "loctr" }, here.length ? here.map(t => React.createElement("span", { key: t }, MARK[t] || t)) : "―"));
+                        })))),
                 React.createElement("div", { className: "sec", style: { marginTop: 4 } },
                     "\u9023\u7D61\u4E8B\u9805",
                     data.notesAt && React.createElement("span", { className: "upd" },
@@ -522,7 +542,20 @@ function Board({ user }) {
                 tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}`, date: date, half: half }),
                 tab === "tr" && React.createElement(Trucks, { data: data, patch: patch, slot: `${date}_${half}` }),
                 tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
-        toast && React.createElement("div", { className: "toast" }, toast));
+        toast && React.createElement("div", { className: "toast" }, toast),
+        askHome && data && (() => {
+            const f = FLOORS.find(x => x.id === askHome);
+            const name = f.bldg === "east" ? f.floor : `${BLDGS.find(b => b.id === f.bldg).name} ${f.floor}`;
+            const choose = v => { patch(`floors.${f.id}`, { loading: v, loadingAt: nowHM() }); setAskHome(null); };
+            return React.createElement("div", { className: "modalbg", onClick: () => setAskHome(null) },
+                React.createElement("div", { className: "modal", onClick: e => e.stopPropagation() },
+                    React.createElement("h2", null, name),
+                    React.createElement("p", { style: { margin: "6px 0 4px", fontSize: 16 } }, "\u30DB\u30FC\u30E0\u306B\u8377\u7269\u306F\u6B8B\u3063\u3066\u3044\u307E\u3059\u304B\uFF1F"),
+                    React.createElement("div", { className: "btns three" },
+                        React.createElement("button", { className: "ok warn", onClick: () => choose("積込後 残あり") }, "\u6B8B\u3042\u308A"),
+                        React.createElement("button", { className: "ok", onClick: () => choose("積込後 残なし") }, "\u6B8B\u306A\u3057"),
+                        React.createElement("button", { className: "cancel", onClick: () => setAskHome(null) }, "\u30AD\u30E3\u30F3\u30BB\u30EB"))));
+        })());
 }
 function App() {
     const [user, setUser] = useState(USE_FIREBASE ? undefined : { uid: "demo" });
