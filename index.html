@@ -29,9 +29,16 @@ html,body{margin:0;background:var(--bg);color:var(--ink);
 button,input,textarea,select{font:inherit;color:inherit}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px 32px}
 header{position:sticky;top:0;z-index:10;background:var(--bg);padding:12px 16px 8px;border-bottom:1px solid var(--line)}
-.hrow{max-width:728px;margin:0 auto;display:flex;align-items:center;gap:8px}
-h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-width:0;white-space:nowrap}
-.undo{border:1.5px solid var(--accent);background:var(--card);border-radius:99px;padding:7px 14px;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--accent);min-height:38px}
+.hrow{max-width:728px;margin:0 auto;display:flex;align-items:center;gap:4px}
+.mode{display:flex;border:1.5px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card);flex:none}
+.mode button{border:0;background:transparent;padding:8px 7px;font-size:13.5px;font-weight:600;color:var(--sub);cursor:pointer;min-height:38px}
+.mode button.on.view{background:var(--sub);color:#fff}
+.mode button.on.edit{background:var(--warn);color:#fff}
+fieldset.lock{border:0;margin:0;padding:0;min-width:0}
+fieldset.lock:disabled textarea,fieldset.lock:disabled input{color:var(--ink);-webkit-text-fill-color:var(--ink);opacity:1}
+fieldset.lock:disabled .pbtn,fieldset.lock:disabled .pbtn.big{display:none}
+h1{font-size:clamp(13px,3.7vw,16px);line-height:1.25;margin:0;flex:1;letter-spacing:.01em;min-width:0;white-space:nowrap}
+.undo{border:1.5px solid var(--accent);background:var(--card);border-radius:99px;padding:7px 9px;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--accent);min-height:38px}
 .undo:disabled{opacity:.35;cursor:default}
 .fpick{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .frow{display:flex;align-items:center;gap:6px}
@@ -88,7 +95,8 @@ h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wi
 .vbar button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:99px;padding:6px 12px;font-size:14px}
 .viewer img{flex:1;min-height:0;width:100%;object-fit:contain}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:13px;z-index:60}
-.status{font-size:11px;padding:3px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.status{font-size:10.5px;padding:3px 5px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.errbar{max-width:728px;margin:6px auto 0;background:var(--warn-soft);color:var(--danger);font-size:12px;padding:6px 10px;border-radius:8px}
 .status.err{background:var(--warn-soft);color:var(--danger)}
 .datebar{max-width:728px;margin:8px auto 0;display:flex;gap:6px;align-items:center}
 .datebar input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:0}
@@ -272,7 +280,7 @@ function useDay(date, user) {
             const ref = db.collection(COLLECTION).doc(date);
             return ref.onSnapshot({ includeMetadataChanges: true }, snap => {
                 setData(deepMerge(emptyDay(), snap.data() || {}));
-                setStatus(snap.metadata.hasPendingWrites ? "保存中…" : snap.metadata.fromCache ? "オフライン" : "同期済み");
+                setStatus(snap.metadata.hasPendingWrites ? "保存中…" : snap.metadata.fromCache ? "圏外" : "同期済み");
             }, err => setStatus("エラー: " + err.code));
         }
         else {
@@ -692,6 +700,7 @@ function Board({ user }) {
         return () => { ids.forEach(clearTimeout); document.removeEventListener("visibilitychange", onVis); };
     });
     const [toast, setToast] = useState("");
+    const [editMode, setEditMode] = useState(false); // 開いたときは閲覧モード（押し間違い防止）
     const [viewPhoto, setViewPhoto] = useState(null);
     // タブは連絡事項の下に置き、下へスクロールしたらヘッダーのすぐ下に留める
     const hdrRef = useRef(null);
@@ -737,12 +746,21 @@ function Board({ user }) {
     return React.createElement(React.Fragment, null,
         React.createElement("header", { ref: hdrRef },
             React.createElement("div", { className: "hrow" },
-                React.createElement("h1", null, "ASC\u5317\u5927\u962A \u30A2\u30DE\u30BE\u30F3\u767A\u9001\u72B6\u6CC1"),
-                React.createElement("button", { className: "undo", disabled: !canUndo, onClick: () => { if (undo()) {
+                React.createElement("h1", null,
+                    "ASC\u5317\u5927\u962A",
+                    React.createElement("br", null),
+                    "\u30A2\u30DE\u30BE\u30F3\u767A\u9001\u72B6\u6CC1"),
+                React.createElement("div", { className: "mode", role: "group", "aria-label": "\u30E2\u30FC\u30C9\u5207\u308A\u66FF\u3048" },
+                    React.createElement("button", { className: !editMode ? "on view" : "", onClick: () => setEditMode(false) }, "\u95B2\u89A7"),
+                    React.createElement("button", { className: editMode ? "on edit" : "", onClick: () => setEditMode(true) }, "\u5165\u529B")),
+                React.createElement("button", { className: "undo", disabled: !canUndo || !editMode, onClick: () => { if (undo()) {
                         setToast("1つ前の状態に戻しました");
                         setTimeout(() => setToast(""), 1500);
                     } } }, "\u21B6 \u623B\u308B"),
-                React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status)),
+                React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status.startsWith("エラー") ? "エラー" : status)),
+            status.startsWith("エラー") && React.createElement("div", { className: "errbar" },
+                "\u4FDD\u5B58\u3067\u304D\u3066\u3044\u307E\u305B\u3093\uFF1A",
+                status.replace(/^エラー:\s*/, "")),
             React.createElement("div", { className: "datebar" },
                 React.createElement("button", { className: "iconbtn", "aria-label": "\u524D\u3078", disabled: atMin, onClick: () => go(-1) }, "\u2039"),
                 React.createElement("input", { type: "date", value: date, min: MIN, onChange: e => e.target.value && setDate(e.target.value < MIN ? MIN : e.target.value) }),
@@ -758,47 +776,49 @@ function Board({ user }) {
         React.createElement("div", { className: "wrap" },
             !USE_FIREBASE && React.createElement("div", { className: "demo" }, "\u30C7\u30E2\u30E2\u30FC\u30C9\uFF1A\u3053\u306E\u7AEF\u672B\u306B\u3060\u3051\u4FDD\u5B58\u3055\u308C\u307E\u3059\u3002\u5171\u6709\u3059\u308B\u306B\u306FFirebase\u8A2D\u5B9A\u3092\u5165\u308C\u3066\u304F\u3060\u3055\u3044\u3002"),
             !data ? React.createElement("p", { className: "small", style: { marginTop: 20 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : React.createElement(React.Fragment, null,
-                React.createElement("div", { className: "summary" },
-                    React.createElement("div", { className: "stat" },
-                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u7A4D\uFF1D\u7A4D\u8FBC\u72B6\u6CC1\u306E\u66F4\u65B0\u6642\u523B\u3001\u7AEF\uFF1D\u7AEF\u672B\u5165\u529B\u6642\u523B\uFF09"),
-                        React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
-                            const st = data.floors[f.id].loading || "未";
-                            const i = Math.max(0, LOAD_STATES.indexOf(st));
-                            const short = SHORT_STATE(loadLabel(st, f.bldg, date, half));
-                            const fl = data.floors[f.id];
-                            const stamp = () => { const t = nowHM(); patch(`floors.${f.id}`, { input1: true, input1At: t }); setToast(`${f.floor} 端末入力 ${t} を記録しました`); setTimeout(() => setToast(""), 1600); };
-                            return React.createElement("div", { key: f.id, className: "loccell st" + i },
-                                React.createElement("button", { className: "locmain", onClick: () => setAskHome(f.id) },
+                React.createElement("fieldset", { className: "lock", disabled: !editMode },
+                    React.createElement("div", { className: "summary" },
+                        React.createElement("div", { className: "stat" },
+                            React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u7A4D\uFF1D\u7A4D\u8FBC\u72B6\u6CC1\u306E\u66F4\u65B0\u6642\u523B\u3001\u7AEF\uFF1D\u7AEF\u672B\u5165\u529B\u6642\u523B\uFF09"),
+                            React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
+                                const st = data.floors[f.id].loading || "未";
+                                const i = Math.max(0, LOAD_STATES.indexOf(st));
+                                const short = SHORT_STATE(loadLabel(st, f.bldg, date, half));
+                                const fl = data.floors[f.id];
+                                const stamp = () => { const t = nowHM(); patch(`floors.${f.id}`, { input1: true, input1At: t }); setToast(`${f.floor} 端末入力 ${t} を記録しました`); setTimeout(() => setToast(""), 1600); };
+                                return React.createElement("div", { key: f.id, className: "loccell st" + i },
+                                    React.createElement("button", { className: "locmain", onClick: () => setAskHome(f.id) },
+                                        React.createElement("div", { className: "locfl" }, f.floor),
+                                        React.createElement("div", { className: "locst" }, short),
+                                        React.createElement("div", { className: "loct" }, st !== "未" && fl.loadingAt ? React.createElement(React.Fragment, null,
+                                            React.createElement("span", { className: "tag" }, "\u7A4D"),
+                                            fl.loadingAt) : "\u00a0")),
+                                    React.createElement("button", { className: "locin" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 && fl.input1At ? React.createElement(React.Fragment, null,
+                                        React.createElement("span", { className: "tag tin" }, "\u7AEF"),
+                                        fl.input1At) : "未入力"));
+                            }))),
+                        React.createElement("div", { className: "stat" },
+                            React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730\uFF08\u30C8\u30E9\u30C3\u30AF\u30BF\u30D6\u304B\u3089\u60C5\u5831\u306E\u5909\u66F4\u304C\u53EF\u80FD\uFF09"),
+                            React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
+                                const here = TRUCKS.filter(t => data.trucks[t].cur === f.id);
+                                return React.createElement("div", { key: f.id, className: "loccell" + (here.length ? " on" : "") },
                                     React.createElement("div", { className: "locfl" }, f.floor),
-                                    React.createElement("div", { className: "locst" }, short),
-                                    React.createElement("div", { className: "loct" }, st !== "未" && fl.loadingAt ? React.createElement(React.Fragment, null,
-                                        React.createElement("span", { className: "tag" }, "\u7A4D"),
-                                        fl.loadingAt) : "\u00a0")),
-                                React.createElement("button", { className: "locin" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 && fl.input1At ? React.createElement(React.Fragment, null,
-                                    React.createElement("span", { className: "tag tin" }, "\u7AEF"),
-                                    fl.input1At) : "未入力"));
-                        }))),
-                    React.createElement("div", { className: "stat" },
-                        React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730\uFF08\u30C8\u30E9\u30C3\u30AF\u30BF\u30D6\u304B\u3089\u60C5\u5831\u306E\u5909\u66F4\u304C\u53EF\u80FD\uFF09"),
-                        React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
-                            const here = TRUCKS.filter(t => data.trucks[t].cur === f.id);
-                            return React.createElement("div", { key: f.id, className: "loccell" + (here.length ? " on" : "") },
-                                React.createElement("div", { className: "locfl" }, f.floor),
-                                React.createElement("div", { className: "loctr" }, here.length ? here.map(t => React.createElement("span", { key: t }, MARK[t] || t)) : "―"));
-                        })))),
-                React.createElement("div", { className: "sec", style: { marginTop: 4 } },
-                    "\u9023\u7D61\u4E8B\u9805",
-                    data.notesAt && React.createElement("span", { className: "upd" },
-                        "\u3000",
-                        data.notesAt,
-                        " \u66F4\u65B0")),
-                React.createElement("div", { className: "card" },
-                    React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "(\u3053\u3053\u306B\u5165\u529B\u3057\u305F\u3053\u3068\u306F\u95B2\u89A7\u8005\u306B\u5171\u6709\u3055\u308C\u307E\u3059)", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) })),
+                                    React.createElement("div", { className: "loctr" }, here.length ? here.map(t => React.createElement("span", { key: t }, MARK[t] || t)) : "―"));
+                            })))),
+                    React.createElement("div", { className: "sec", style: { marginTop: 4 } },
+                        "\u9023\u7D61\u4E8B\u9805",
+                        data.notesAt && React.createElement("span", { className: "upd" },
+                            "\u3000",
+                            data.notesAt,
+                            " \u66F4\u65B0")),
+                    React.createElement("div", { className: "card" },
+                        React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "(\u3053\u3053\u306B\u5165\u529B\u3057\u305F\u3053\u3068\u306F\u95B2\u89A7\u8005\u306B\u5171\u6709\u3055\u308C\u307E\u3059)", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) }))),
                 React.createElement("div", { className: "tabbar", style: { top: hdrH } },
                     React.createElement("div", { className: "tabs" }, [["wh", "倉庫"], ["tr", "トラック"], ["st", "端末入力員"]].map(([k, l]) => React.createElement("button", { key: k, className: tab === k ? "on" : "", onClick: () => setTab(k) }, l)))),
-                tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}`, date: date, half: half, photos: photos, savePhoto: savePhoto, onView: setViewPhoto }),
-                tab === "tr" && React.createElement(Trucks, { data: data, patch: patch, slot: `${date}_${half}` }),
-                tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
+                React.createElement("fieldset", { className: "lock", disabled: !editMode },
+                    tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}`, date: date, half: half, photos: photos, savePhoto: savePhoto, onView: setViewPhoto }),
+                    tab === "tr" && React.createElement(Trucks, { data: data, patch: patch, slot: `${date}_${half}` }),
+                    tab === "st" && React.createElement(Staff, { data: data, patch: patch })))),
         toast && React.createElement("div", { className: "toast" }, toast),
         viewPhoto && React.createElement("div", { className: "viewer", onClick: () => setViewPhoto(null) },
             React.createElement("div", { className: "vbar" },
