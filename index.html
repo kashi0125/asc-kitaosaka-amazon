@@ -44,7 +44,10 @@ h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wi
 .loccell{border:1px solid var(--line);border-radius:8px;text-align:center;padding:4px 0 5px;min-width:0}
 .loccell.on{background:var(--mid-soft);border-color:var(--mid)}
 .locfl{font-size:12px;color:var(--sub)}
-button.loccell{background:transparent;cursor:pointer;font:inherit;color:inherit;width:100%}
+.locmain{display:block;width:100%;background:transparent;border:0;padding:0;cursor:pointer;font:inherit;color:inherit}
+.locin{display:block;width:100%;font:inherit;font-size:11px;margin-top:3px;padding:3px 0 0;border:0;border-top:1px dashed var(--line);background:transparent;color:var(--sub);cursor:pointer;font-variant-numeric:tabular-nums;letter-spacing:-.03em;min-height:22px}
+.locin.on{color:var(--done);font-weight:700}
+.summary .loccell{padding-bottom:2px}
 .locst{font-size:11px;line-height:1.3;margin-top:2px;white-space:nowrap;letter-spacing:-.06em;color:var(--sub)}
 .loccell.st1{background:var(--mid-soft);border-color:var(--mid)} .loccell.st1 .locfl,.loccell.st1 .locst{color:var(--mid);font-weight:700}
 .loccell.st2{background:var(--warn-soft);border-color:var(--warn)} .loccell.st2 .locfl,.loccell.st2 .locst{color:var(--warn);font-weight:700}
@@ -412,8 +415,6 @@ function Warehouse({ data, patch, slot, date, half }) {
         FLOORS.filter(f => f.bldg === b.id).map(f => {
             const fl = data.floors[f.id];
             const base = `floors.${f.id}`;
-            // 端末入力：押すたびに時刻を最新に更新する（取り消しは「戻る」で）
-            const stamp = () => patch(base, { input1: true, input1At: nowHM() });
             return React.createElement("div", { className: "card", key: f.id },
                 React.createElement("div", { className: "floorhead" },
                     React.createElement("div", { className: "floor" }, f.floor)),
@@ -424,9 +425,6 @@ function Warehouse({ data, patch, slot, date, half }) {
                         fl.sizeAt,
                         " \u66F4\u65B0")),
                 React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
-                React.createElement("span", { className: "lbl" }, "\u7AEF\u672B\u5165\u529B"),
-                React.createElement("div", { className: "row", style: { marginBottom: 10 } },
-                    React.createElement("button", { className: "toggle" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 ? `✓ ${fl.input1At} 入力` : "未（タップで時刻を記録）")),
                 React.createElement("span", { className: "lbl" },
                     "\u7A4D\u8FBC\u72B6\u6CC1",
                     fl.loadingAt && React.createElement("span", { className: "upd" },
@@ -533,14 +531,18 @@ function Board({ user }) {
             !data ? React.createElement("p", { className: "small", style: { marginTop: 20 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "summary" },
                     React.createElement("div", { className: "stat" },
-                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6"),
+                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u4E0B\u6BB5\u306F\u7AEF\u672B\u5165\u529B\u306E\u6642\u523B\uFF09"),
                         React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
                             const st = data.floors[f.id].loading || "未";
                             const i = Math.max(0, LOAD_STATES.indexOf(st));
                             const short = SHORT_STATE(loadLabel(st, f.bldg, date, half));
-                            return React.createElement("button", { key: f.id, className: "loccell st" + i, onClick: () => setAskHome(f.id) },
-                                React.createElement("div", { className: "locfl" }, f.floor),
-                                React.createElement("div", { className: "locst" }, short));
+                            const fl = data.floors[f.id];
+                            const stamp = () => { const t = nowHM(); patch(`floors.${f.id}`, { input1: true, input1At: t }); setToast(`${f.floor} 端末入力 ${t} を記録しました`); setTimeout(() => setToast(""), 1600); };
+                            return React.createElement("div", { key: f.id, className: "loccell st" + i },
+                                React.createElement("button", { className: "locmain", onClick: () => setAskHome(f.id) },
+                                    React.createElement("div", { className: "locfl" }, f.floor),
+                                    React.createElement("div", { className: "locst" }, short)),
+                                React.createElement("button", { className: "locin" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 && fl.input1At ? fl.input1At : "―"));
                         }))),
                     React.createElement("div", { className: "stat" },
                         React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730\uFF08\u30C8\u30E9\u30C3\u30AF\u30BF\u30D6\u304B\u3089\u60C5\u5831\u306E\u5909\u66F4\u304C\u53EF\u80FD\uFF09"),
