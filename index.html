@@ -543,7 +543,7 @@ function Board({ user }) {
                                 React.createElement("div", { className: "locst" }, short));
                         }))),
                     React.createElement("div", { className: "stat" },
-                        React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730"),
+                        React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730\uFF08\u30C8\u30E9\u30C3\u30AF\u30BF\u30D6\u304B\u3089\u60C5\u5831\u306E\u5909\u66F4\u304C\u53EF\u80FD\uFF09"),
                         React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
                             const here = TRUCKS.filter(t => data.trucks[t].cur === f.id);
                             return React.createElement("div", { key: f.id, className: "loccell" + (here.length ? " on" : "") },
