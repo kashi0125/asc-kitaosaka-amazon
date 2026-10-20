@@ -55,6 +55,7 @@ h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wi
 .choices{display:flex;flex-direction:column;gap:8px}
 .choice{padding:13px;border-radius:12px;border:1.5px solid var(--line);background:transparent;font-size:16px;font-weight:600;cursor:pointer;color:var(--ink)}
 .choice.s1{border-color:var(--mid);color:var(--mid)} .choice.s2{border-color:var(--warn);color:var(--warn)} .choice.s3{border-color:var(--done);color:var(--done)}
+.choice.s0{border-color:var(--sub);color:var(--sub)} .choice.cur.s0{background:var(--line)}
 .choice.cur.s1{background:var(--mid-soft)} .choice.cur.s2{background:var(--warn-soft)} .choice.cur.s3{background:var(--done-soft)}
 .curmark{font-size:12px;font-weight:400;margin-left:4px}
 .choice.cancel{color:var(--sub)}
@@ -173,7 +174,7 @@ const LOAD_STATES = ["未", "積込中", "積込後 残あり", "積込後 残�
 const LOAD_LABEL = { "積込後 残なし": "積込完了 残なし" }; // 画面に出す文字（保存する値はそのまま）
 // 後半だけ：この時刻までは「積込後 追加待ち」、過ぎたら「積込完了 残なし」と表示する
 // 「倉庫の現状」に出す短い表示
-const SHORT_STATE = label => ({ "未": "未", "積込中": "積込中", "積込後 残あり": "残あり", "積込完了 残なし": "残なし", "積込後 追加待ち": "追加待ち" })[label] || label;
+const SHORT_STATE = label => ({ "未": "未積込", "積込中": "積込中", "積込後 残あり": "残あり", "積込完了 残なし": "残なし", "積込後 追加待ち": "追加待ち" })[label] || label;
 const WAIT_UNTIL = { east: "17:45", new: "16:30" };
 const cutoffDate = (date, bldg) => { const [h, m] = WAIT_UNTIL[bldg].split(":").map(Number); const d = new Date(date + "T00:00:00"); d.setHours(h, m + 1, 0, 0); return d; };
 function loadLabel(s, bldg, date, half) {
@@ -425,19 +426,6 @@ function Warehouse({ data, patch, slot, date, half }) {
                         fl.sizeAt,
                         " \u66F4\u65B0")),
                 React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
-                React.createElement("span", { className: "lbl" },
-                    "\u7A4D\u8FBC\u72B6\u6CC1",
-                    fl.loadingAt && React.createElement("span", { className: "upd" },
-                        "\u3000",
-                        fl.loadingAt,
-                        " \u66F4\u65B0")),
-                React.createElement("div", { className: "seg" }, LOAD_STATES.map((s, i) => React.createElement("button", { key: s, className: fl.loading === s ? "s" + i : "", onClick: () => {
-                        if (fl.loading === s)
-                            return;
-                        patch(base, { loading: s, loadingAt: nowHM() });
-                    } }, loadLabel(s, f.bldg, date, half).split(" ").map((w, j) => React.createElement(React.Fragment, { key: j },
-                    j > 0 && React.createElement("br", null),
-                    w))))),
                 React.createElement(PrivateMemo, { storeKey: `asc-memo-${slot}-${f.id}` }));
         }))));
 }
@@ -531,7 +519,7 @@ function Board({ user }) {
             !data ? React.createElement("p", { className: "small", style: { marginTop: 20 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "summary" },
                     React.createElement("div", { className: "stat" },
-                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u4E0B\u6BB5\u306F\u7AEF\u672B\u5165\u529B\u306E\u6642\u523B\uFF09"),
+                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u4E0A\u6BB5\u306F\u7A4D\u8FBC\u72B6\u6CC1\u3001\u4E0B\u6BB5\u306F\u7AEF\u672B\u5165\u529B\u6642\u523B\uFF09"),
                         React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
                             const st = data.floors[f.id].loading || "未";
                             const i = Math.max(0, LOAD_STATES.indexOf(st));
@@ -542,7 +530,7 @@ function Board({ user }) {
                                 React.createElement("button", { className: "locmain", onClick: () => setAskHome(f.id) },
                                     React.createElement("div", { className: "locfl" }, f.floor),
                                     React.createElement("div", { className: "locst" }, short)),
-                                React.createElement("button", { className: "locin" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 && fl.input1At ? fl.input1At : "―"));
+                                React.createElement("button", { className: "locin" + (fl.input1 ? " on" : ""), onClick: stamp }, fl.input1 && fl.input1At ? fl.input1At : "未入力"));
                         }))),
                     React.createElement("div", { className: "stat" },
                         React.createElement("span", null, "\u30C8\u30E9\u30C3\u30AF\u306E\u73FE\u5728\u5730\uFF08\u30C8\u30E9\u30C3\u30AF\u30BF\u30D6\u304B\u3089\u60C5\u5831\u306E\u5909\u66F4\u304C\u53EF\u80FD\uFF09"),
@@ -570,15 +558,15 @@ function Board({ user }) {
             const cur = data.floors[f.id].loading;
             const choose = v => { if (v !== cur)
                 patch(`floors.${f.id}`, { loading: v, loadingAt: nowHM() }); setAskHome(null); };
-            const opts = [["積込中", "s1"], ["積込後 残あり", "s2"], ["積込後 残なし", "s3"]];
+            const opts = [["未", "s0"], ["積込中", "s1"], ["積込後 残あり", "s2"], ["積込後 残なし", "s3"]];
             return React.createElement("div", { className: "modalbg", onClick: () => setAskHome(null) },
                 React.createElement("div", { className: "modal", onClick: e => e.stopPropagation() },
                     React.createElement("h2", null, name),
                     React.createElement("p", { className: "small", style: { margin: "2px 0 10px" } }, "\u7A4D\u8FBC\u72B6\u6CC1\u3092\u9078\u3093\u3067\u304F\u3060\u3055\u3044"),
                     React.createElement("div", { className: "choices" },
-                        opts.map(([v, c]) => React.createElement("button", { key: v, className: "choice " + c + (cur === v ? " cur" : ""), onClick: () => choose(v) },
-                            loadLabel(v, f.bldg, date, half),
-                            cur === v && React.createElement("span", { className: "curmark" }, "\uFF08\u3044\u307E\u306E\u72B6\u614B\uFF09"))),
+                        opts.map(([v, c]) => React.createElement("button", { key: v, className: "choice " + c + ((cur || "未") === v ? " cur" : ""), onClick: () => choose(v) },
+                            v === "未" ? "未積込" : loadLabel(v, f.bldg, date, half),
+                            (cur || "未") === v && React.createElement("span", { className: "curmark" }, "\uFF08\u3044\u307E\u306E\u72B6\u614B\uFF09"))),
                         React.createElement("button", { className: "choice cancel", onClick: () => setAskHome(null) }, "\u30AD\u30E3\u30F3\u30BB\u30EB"))));
         })());
 }
