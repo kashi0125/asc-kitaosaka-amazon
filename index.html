@@ -80,6 +80,7 @@ h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wi
 .pinfo{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .ptime{font-size:13px;font-weight:700;color:var(--accent)}
 .pbtn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer}
+.pbtn.del{color:var(--danger);border-color:var(--danger)}
 .pbtn.big{width:100%;padding:11px;font-size:15px;border-style:dashed;color:var(--accent);font-weight:600}
 .pbtn:disabled{opacity:.6}
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:70;display:flex;flex-direction:column}
@@ -94,6 +95,7 @@ h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wi
 .halfseg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);flex:none}
 .halfseg button{border:0;background:transparent;padding:8px 10px;cursor:pointer;color:var(--sub)}
 .halfseg button.on{background:var(--accent);color:#fff;font-weight:600}
+.iconbtn:disabled{opacity:.35;cursor:default}
 .iconbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;cursor:pointer}
 .tabbar{position:sticky;z-index:9;background:var(--bg);margin:0 -16px;padding:6px 16px 8px}
 .tabs{max-width:728px;margin:0 auto;display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
@@ -256,6 +258,8 @@ function stepSlot(date, half, dir) {
         return half === "am" ? [date, "pm"] : [shift(date, 1), "am"];
     return half === "pm" ? [date, "am"] : [shift(date, -1), "pm"];
 }
+// 先月の1日（これより前＝先々月以前は表示も入力もしない・自動で削除する）
+const minDate = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 1).toLocaleDateString("sv-SE"); };
 const nowHM = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 function useDay(date, user) {
     const [data, setData] = useState(null);
@@ -335,7 +339,9 @@ function useDay(date, user) {
             write(prev);
         return !!prev;
     }, [date, write]);
-    return { data, patch, status, undo, canUndo: undoCount > 0 };
+    // mark：画面に出ない目印の記録用（「戻る」の対象にしない）
+    const mark = useCallback((path, val) => write(nest(path, val)), [write]);
+    return { data, patch, mark, status, undo, canUndo: undoCount > 0 };
 }
 /* ---------- 入力部品（入力中は他人の更新で上書きされない） ---------- */
 function Field({ value, onCommit, as, ...rest }) {
@@ -495,7 +501,44 @@ function usePhotos(slot, user) {
 const PHOTO_KEEP_DAYS = 2;
 async function cleanupOldPhotos() {
     const cutoff = shift(today(), -(PHOTO_KEEP_DAYS - 1)); // この日付より前の写真を消す（例：10/22なら10/20以前）
-    const mark = "asc-photo-cleaned";
+    const markKey = "asc-photo-cleaned";
+    try {
+        if (localStorage.getItem(markKey) === today())
+            return;
+    }
+    catch { }
+    try {
+        if (USE_FIREBASE) {
+            // 「写真あり」の目印が付いた古い日の記録（数KB）だけを読み、写真本体は読み込まずに消す
+            const FP = firebase.firestore.FieldPath;
+            // 目印が付いているのは今日・昨日と消し残しの数日分だけなので、件数は少ない
+            const days = await db.collection(COLLECTION).where("hasPhoto", "==", true).limit(60).get();
+            for (const d of days.docs.filter(x => x.id < cutoff)) {
+                const fl = d.data().floors || {};
+                await Promise.all(Object.keys(fl).filter(k => fl[k] && fl[k].photo).map(k => db.collection(PHOTO_COLLECTION).doc(`${d.id}_${k}`).delete().catch(() => { })));
+                await d.ref.set({ hasPhoto: false }, { merge: true });
+            }
+            // この仕組みより前に撮った写真（目印なし）は、端末ごとに一度だけ従来の方法で片付ける
+            const legacy = "asc-photo-legacy-v1";
+            if (today() >= "2026-10-23" && localStorage.getItem(legacy) !== "done") {
+                const snap = await db.collection(PHOTO_COLLECTION).where(FP.documentId(), "<", cutoff).limit(50).get();
+                await Promise.all(snap.docs.map(x => x.ref.delete().catch(() => { })));
+                localStorage.setItem(legacy, "done");
+            }
+        }
+        else {
+            Object.keys(localStorage).filter(k => k.startsWith("asc-photo-20") && k.slice(10) < cutoff).forEach(k => localStorage.removeItem(k));
+        }
+        try {
+            localStorage.setItem(markKey, today());
+        }
+        catch { }
+    }
+    catch (e) { /* 消せなくても次回また試す */ }
+}
+// 先々月以前の記録を消す（アプリを開いたときに1日1回）
+async function cleanupOldDays() {
+    const cutoff = minDate(), mark = "asc-days-cleaned";
     try {
         if (localStorage.getItem(mark) === today())
             return;
@@ -503,8 +546,8 @@ async function cleanupOldPhotos() {
     catch { }
     try {
         if (USE_FIREBASE) {
-            const snap = await db.collection(PHOTO_COLLECTION)
-                .where(firebase.firestore.FieldPath.documentId(), "<", cutoff).limit(200).get();
+            const snap = await db.collection(COLLECTION)
+                .where(firebase.firestore.FieldPath.documentId(), "<", cutoff).limit(400).get();
             if (!snap.empty) {
                 const batch = db.batch();
                 snap.docs.forEach(d => batch.delete(d.ref));
@@ -512,8 +555,13 @@ async function cleanupOldPhotos() {
             }
         }
         else {
-            Object.keys(localStorage).filter(k => k.startsWith("asc-photo-20") && k.slice(10) < cutoff).forEach(k => localStorage.removeItem(k));
+            Object.keys(localStorage).filter(k => k.startsWith("asc-ship-20") && k.slice(9) < cutoff).forEach(k => localStorage.removeItem(k));
         }
+        // 自分だけのメモ（この端末に保存）も同じく古い分を消す
+        try {
+            Object.keys(localStorage).filter(k => k.startsWith("asc-memo-20") && k.slice(9) < cutoff).forEach(k => localStorage.removeItem(k));
+        }
+        catch { }
         try {
             localStorage.setItem(mark, today());
         }
@@ -541,6 +589,20 @@ function PhotoField({ photo, date, onSave, onView }) {
         }
         setBusy(false);
     };
+    // 削除：写真を空にして保存する（全員の画面から消える）
+    const remove = async () => {
+        if (!window.confirm("この写真を削除しますか？\n（全員の画面から消えます）"))
+            return;
+        setBusy(true);
+        setErr("");
+        try {
+            await onSave({ img: "", at: "" });
+        }
+        catch (x) {
+            setErr("削除できませんでした（" + (x.code || x.message || "不明") + "）");
+        }
+        setBusy(false);
+    };
     return React.createElement("div", { className: "photo" },
         React.createElement("input", { ref: inp, type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: pick }),
         photo && photo.img
@@ -551,7 +613,9 @@ function PhotoField({ photo, date, onSave, onView }) {
                         "\uD83D\uDCF7 ",
                         photo.at,
                         " \u64AE\u5F71"),
-                    React.createElement("button", { className: "pbtn", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "撮り直す")))
+                    React.createElement("div", { className: "row", style: { gap: 6 } },
+                        React.createElement("button", { className: "pbtn", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "撮り直す"),
+                        React.createElement("button", { className: "pbtn del", disabled: busy, onClick: remove }, "\u524A\u9664"))))
             : React.createElement("button", { className: "pbtn big", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "📷 写真を撮る"),
         err && React.createElement("div", { className: "err" }, err));
 }
@@ -600,7 +664,14 @@ function Staff({ data, patch }) {
 function Board({ user }) {
     const [date, setDate] = useState(today());
     const [half, setHalf] = useState(curHalf());
-    const go = dir => { const [d, h] = stepSlot(date, half, dir); setDate(d); setHalf(h); };
+    const MIN = minDate();
+    const atMin = date < MIN || (date === MIN && half === "am");
+    const go = dir => { if (dir < 0 && atMin)
+        return; const [d, h] = stepSlot(date, half, dir); setDate(d < MIN ? MIN : d); setHalf(h); };
+    useEffect(() => { if (date < MIN) {
+        setDate(MIN);
+        setHalf("am");
+    } }, [date]);
     const isNow = date === today() && half === curHalf();
     // 「追加待ち」→「残なし」の切り替え時刻に1回だけ画面を描き直す（常時の見張りはしない）
     const [, redraw] = useState(0);
@@ -639,10 +710,14 @@ function Board({ user }) {
     catch {
         return "wh";
     } });
-    const { data, patch, status, undo, canUndo } = useDay(`${date}_${half}`, user);
-    const { photos, save: savePhoto } = usePhotos(`${date}_${half}`, user);
-    useEffect(() => { if (user)
-        cleanupOldPhotos(); }, [user]);
+    const { data, patch, mark, status, undo, canUndo } = useDay(`${date}_${half}`, user);
+    const { photos, save: savePhotoRaw } = usePhotos(`${date}_${half}`, user);
+    // 写真を保存したら、その日の記録に「写真あり」の目印を付けておく（あとで写真を読み込まずに消すため）
+    const savePhoto = useCallback(async (fid, doc) => { mark("", { hasPhoto: true, floors: { [fid]: { photo: true } } }); await savePhotoRaw(fid, doc); }, [mark, savePhotoRaw]);
+    useEffect(() => { if (user) {
+        cleanupOldPhotos();
+        cleanupOldDays();
+    } }, [user]);
     useEffect(() => { try {
         localStorage.setItem("asc-ship-tab", tab);
     }
@@ -666,8 +741,8 @@ function Board({ user }) {
                     } } }, "\u21B6 \u623B\u308B"),
                 React.createElement("span", { className: "status" + (status.startsWith("エラー") ? " err" : "") }, status)),
             React.createElement("div", { className: "datebar" },
-                React.createElement("button", { className: "iconbtn", "aria-label": "\u524D\u3078", onClick: () => go(-1) }, "\u2039"),
-                React.createElement("input", { type: "date", value: date, onChange: e => e.target.value && setDate(e.target.value) }),
+                React.createElement("button", { className: "iconbtn", "aria-label": "\u524D\u3078", disabled: atMin, onClick: () => go(-1) }, "\u2039"),
+                React.createElement("input", { type: "date", value: date, min: MIN, onChange: e => e.target.value && setDate(e.target.value < MIN ? MIN : e.target.value) }),
                 React.createElement("div", { className: "halfseg" }, HALVES.map(h => React.createElement("button", { key: h.id, className: half === h.id ? "on" : "", onClick: () => setHalf(h.id) }, h.name))),
                 React.createElement("button", { className: "iconbtn", "aria-label": "\u6B21\u3078", onClick: () => go(1) }, "\u203A")),
             !isNow && React.createElement("div", { className: "datebar" },
