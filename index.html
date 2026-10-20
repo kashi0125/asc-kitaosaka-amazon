@@ -74,6 +74,18 @@ h1{font-size:clamp(12px,3.55vw,17px);margin:0;flex:1;letter-spacing:.01em;min-wi
 .fchip.fc-cur{background:var(--mid-soft);border-color:var(--mid);color:var(--mid);font-weight:700}
 .fchip.fc-plan{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
 .fchip.fc-done{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:700}
+.photo{margin-bottom:2px}
+.prow{display:flex;gap:10px;align-items:center}
+.thumb{width:96px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:none;background:var(--bg)}
+.pinfo{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.ptime{font-size:13px;font-weight:700;color:var(--accent)}
+.pbtn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer}
+.pbtn.big{width:100%;padding:11px;font-size:15px;border-style:dashed;color:var(--accent);font-weight:600}
+.pbtn:disabled{opacity:.6}
+.viewer{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:70;display:flex;flex-direction:column}
+.vbar{display:flex;justify-content:space-between;align-items:center;color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;font-size:14px}
+.vbar button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:99px;padding:6px 12px;font-size:14px}
+.viewer img{flex:1;min-height:0;width:100%;object-fit:contain}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:13px;z-index:60}
 .status{font-size:11px;padding:3px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .status.err{background:var(--warn-soft);color:var(--danger)}
@@ -159,7 +171,8 @@ const FIREBASE_CONFIG = {
     messagingSenderId: "911558652059",
     appId: "1:911558652059:web:670eb21fc4e1dfb38c963e"
 };
-const COLLECTION = "kitaosaka_shipping"; // Firestoreのコレクション名（日付ごとに1ドキュメント）
+const COLLECTION = "kitaosaka_shipping";
+const PHOTO_COLLECTION = "kitaosaka_photos"; // 写真（日付_前後半_フロアごとに1枚）   // Firestoreのコレクション名（日付ごとに1ドキュメント）
 /* ---- 現場の構成（変更はここだけ） ---- */
 const TRUCKS = ["1", "2", "3", "4", "5"];
 const MARK = { "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥", "7": "⑦", "8": "⑧" };
@@ -416,7 +429,133 @@ function PrivateMemo({ storeKey }) {
             React.createElement("span", { className: "private" }, "\uD83D\uDD12 \u81EA\u5206\u3060\u3051\u306B\u8868\u793A")),
         React.createElement("textarea", { className: "inp memo", value: v, placeholder: "\u3053\u306E\u7AEF\u672B\u306B\u3060\u3051\u4FDD\u5B58\u3055\u308C\u307E\u3059", onChange: e => save(e.target.value) }));
 }
-function Warehouse({ data, patch, slot, date, half }) {
+// ---------- 写真 ----------
+// 撮影した写真を長辺1280px・JPEGに縮めて、保存できる大きさ（約500KB以下）にする
+async function compressImage(file) {
+    const url = URL.createObjectURL(file);
+    try {
+        const img = await new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = url; });
+        let max = 1280, q = 0.7, out = "";
+        for (let n = 0; n < 6; n++) {
+            const r = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+            const c = document.createElement("canvas");
+            c.width = Math.round(img.naturalWidth * r);
+            c.height = Math.round(img.naturalHeight * r);
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            out = c.toDataURL("image/jpeg", q);
+            if (out.length < 500000)
+                return out;
+            max = Math.round(max * 0.8);
+            q = Math.max(0.45, q - 0.08);
+        }
+        return out;
+    }
+    finally {
+        URL.revokeObjectURL(url);
+    }
+}
+const fmtShot = (ms, date) => {
+    const d = new Date(ms), hm = d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("sv-SE") === date ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+};
+function usePhotos(slot, user) {
+    const [photos, setPhotos] = useState({});
+    useEffect(() => {
+        setPhotos({});
+        if (USE_FIREBASE) {
+            if (!user)
+                return;
+            const offs = FLOORS.map(f => db.collection(PHOTO_COLLECTION).doc(`${slot}_${f.id}`).onSnapshot(snap => {
+                setPhotos(p => ({ ...p, [f.id]: snap.exists ? snap.data() : null }));
+            }, () => { }));
+            return () => offs.forEach(off => off());
+        }
+        else {
+            const load = () => { const o = {}; FLOORS.forEach(f => { try {
+                o[f.id] = JSON.parse(localStorage.getItem(`asc-photo-${slot}_${f.id}`) || "null");
+            }
+            catch { } }); setPhotos(o); };
+            load();
+            const onS = e => { if ((e.key || "").startsWith("asc-photo-"))
+                load(); };
+            window.addEventListener("storage", onS);
+            return () => window.removeEventListener("storage", onS);
+        }
+    }, [slot, user]);
+    const save = useCallback(async (floorId, doc) => {
+        setPhotos(p => ({ ...p, [floorId]: doc }));
+        if (USE_FIREBASE)
+            await db.collection(PHOTO_COLLECTION).doc(`${slot}_${floorId}`).set({ ...doc, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        else
+            localStorage.setItem(`asc-photo-${slot}_${floorId}`, JSON.stringify(doc));
+    }, [slot]);
+    return { photos, save };
+}
+// 2日以上前（今日・昨日より前）の写真を消す。アプリを開いたときに1日1回だけ行う
+const PHOTO_KEEP_DAYS = 2;
+async function cleanupOldPhotos() {
+    const cutoff = shift(today(), -(PHOTO_KEEP_DAYS - 1)); // この日付より前の写真を消す（例：10/22なら10/20以前）
+    const mark = "asc-photo-cleaned";
+    try {
+        if (localStorage.getItem(mark) === today())
+            return;
+    }
+    catch { }
+    try {
+        if (USE_FIREBASE) {
+            const snap = await db.collection(PHOTO_COLLECTION)
+                .where(firebase.firestore.FieldPath.documentId(), "<", cutoff).limit(200).get();
+            if (!snap.empty) {
+                const batch = db.batch();
+                snap.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+            }
+        }
+        else {
+            Object.keys(localStorage).filter(k => k.startsWith("asc-photo-20") && k.slice(10) < cutoff).forEach(k => localStorage.removeItem(k));
+        }
+        try {
+            localStorage.setItem(mark, today());
+        }
+        catch { }
+    }
+    catch (e) { /* 消せなくても次回また試す */ }
+}
+function PhotoField({ photo, date, onSave, onView }) {
+    const inp = useRef(null);
+    const [busy, setBusy] = useState(false), [err, setErr] = useState("");
+    const pick = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if (!file)
+            return;
+        setBusy(true);
+        setErr("");
+        try {
+            const img = await compressImage(file);
+            const t = file.lastModified && Date.now() - file.lastModified < 7 * 86400000 ? file.lastModified : Date.now();
+            await onSave({ img, at: fmtShot(t, date) });
+        }
+        catch (x) {
+            setErr("保存できませんでした（" + (x.code || x.message || "不明") + "）");
+        }
+        setBusy(false);
+    };
+    return React.createElement("div", { className: "photo" },
+        React.createElement("input", { ref: inp, type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: pick }),
+        photo && photo.img
+            ? React.createElement("div", { className: "prow" },
+                React.createElement("img", { className: "thumb", src: photo.img, alt: "\u7269\u91CF\u306E\u5199\u771F", onClick: () => onView(photo) }),
+                React.createElement("div", { className: "pinfo" },
+                    React.createElement("div", { className: "ptime" },
+                        "\uD83D\uDCF7 ",
+                        photo.at,
+                        " \u64AE\u5F71"),
+                    React.createElement("button", { className: "pbtn", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "撮り直す")))
+            : React.createElement("button", { className: "pbtn big", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "📷 写真を撮る"),
+        err && React.createElement("div", { className: "err" }, err));
+}
+function Warehouse({ data, patch, slot, date, half, photos, savePhoto, onView }) {
     return React.createElement(React.Fragment, null, BLDGS.map(b => React.createElement(React.Fragment, { key: b.id },
         React.createElement("div", { className: "sec" }, b.label),
         FLOORS.filter(f => f.bldg === b.id).map(f => {
@@ -425,13 +564,8 @@ function Warehouse({ data, patch, slot, date, half }) {
             return React.createElement("div", { className: "card", key: f.id },
                 React.createElement("div", { className: "floorhead" },
                     React.createElement("div", { className: "floor" }, f.floor)),
-                React.createElement("span", { className: "lbl" },
-                    "\u7269\u91CF",
-                    fl.sizeAt && React.createElement("span", { className: "upd" },
-                        "\u3000",
-                        fl.sizeAt,
-                        " \u66F4\u65B0")),
-                React.createElement("div", { className: "seg compact", style: { marginBottom: 10 } }, SIZES.map(z => React.createElement("button", { key: z, className: fl.size === z ? "on" : "", onClick: () => patch(base, { size: fl.size === z ? "" : z, sizeAt: nowHM() }) }, z))),
+                React.createElement("span", { className: "lbl" }, "\u7269\u91CF\uFF08\u5199\u771F\uFF09"),
+                React.createElement(PhotoField, { photo: photos[f.id], date: date, onSave: doc => savePhoto(f.id, doc), onView: onView }),
                 React.createElement("span", { className: "lbl", style: { marginTop: 10 } },
                     "\u30E1\u30E2 ",
                     React.createElement("span", { className: "private" }, "\uD83D\uDC65 \u5171\u6709"),
@@ -484,6 +618,7 @@ function Board({ user }) {
         return () => { ids.forEach(clearTimeout); document.removeEventListener("visibilitychange", onVis); };
     });
     const [toast, setToast] = useState("");
+    const [viewPhoto, setViewPhoto] = useState(null);
     // タブは連絡事項の下に置き、下へスクロールしたらヘッダーのすぐ下に留める
     const hdrRef = useRef(null);
     const [hdrH, setHdrH] = useState(0);
@@ -505,6 +640,9 @@ function Board({ user }) {
         return "wh";
     } });
     const { data, patch, status, undo, canUndo } = useDay(`${date}_${half}`, user);
+    const { photos, save: savePhoto } = usePhotos(`${date}_${half}`, user);
+    useEffect(() => { if (user)
+        cleanupOldPhotos(); }, [user]);
     useEffect(() => { try {
         localStorage.setItem("asc-ship-tab", tab);
     }
@@ -544,7 +682,7 @@ function Board({ user }) {
             !data ? React.createElement("p", { className: "small", style: { marginTop: 20 } }, "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026") : React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "summary" },
                     React.createElement("div", { className: "stat" },
-                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u7A4D\uFF1D\u7A4D\u8FBC\u72B6\u6CC1\u306E\u66F4\u65B0\u3001\u7AEF\uFF1D\u7AEF\u672B\u5165\u529B\uFF09"),
+                        React.createElement("span", null, "\u5009\u5EAB\u306E\u73FE\u72B6\uFF08\u7A4D\uFF1D\u7A4D\u8FBC\u72B6\u6CC1\u306E\u66F4\u65B0\u6642\u523B\u3001\u7AEF\uFF1D\u7AEF\u672B\u5165\u529B\u6642\u523B\uFF09"),
                         React.createElement("div", { className: "locgrid" }, FLOORS.map(f => {
                             const st = data.floors[f.id].loading || "未";
                             const i = Math.max(0, LOAD_STATES.indexOf(st));
@@ -580,10 +718,18 @@ function Board({ user }) {
                     React.createElement(Field, { as: "textarea", value: data.notes, placeholder: "(\u3053\u3053\u306B\u5165\u529B\u3057\u305F\u3053\u3068\u306F\u95B2\u89A7\u8005\u306B\u5171\u6709\u3055\u308C\u307E\u3059)", onCommit: v => patch("", { notes: v, notesAt: nowHM() }) })),
                 React.createElement("div", { className: "tabbar", style: { top: hdrH } },
                     React.createElement("div", { className: "tabs" }, [["wh", "倉庫"], ["tr", "トラック"], ["st", "端末入力員"]].map(([k, l]) => React.createElement("button", { key: k, className: tab === k ? "on" : "", onClick: () => setTab(k) }, l)))),
-                tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}`, date: date, half: half }),
+                tab === "wh" && React.createElement(Warehouse, { data: data, patch: patch, slot: `${date}_${half}`, date: date, half: half, photos: photos, savePhoto: savePhoto, onView: setViewPhoto }),
                 tab === "tr" && React.createElement(Trucks, { data: data, patch: patch, slot: `${date}_${half}` }),
                 tab === "st" && React.createElement(Staff, { data: data, patch: patch }))),
         toast && React.createElement("div", { className: "toast" }, toast),
+        viewPhoto && React.createElement("div", { className: "viewer", onClick: () => setViewPhoto(null) },
+            React.createElement("div", { className: "vbar" },
+                React.createElement("span", null,
+                    "\uD83D\uDCF7 ",
+                    viewPhoto.at,
+                    " \u64AE\u5F71"),
+                React.createElement("button", { onClick: () => setViewPhoto(null) }, "\u2715 \u9589\u3058\u308B")),
+            React.createElement("img", { src: viewPhoto.img, alt: "\u7269\u91CF\u306E\u5199\u771F", onClick: e => e.stopPropagation() })),
         askHome && data && (() => {
             const f = FLOORS.find(x => x.id === askHome);
             const name = f.bldg === "east" ? f.floor : `${BLDGS.find(b => b.id === f.bldg).name} ${f.floor}`;
