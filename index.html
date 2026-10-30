@@ -96,12 +96,16 @@ button.staffcell{font:inherit;color:inherit;background:transparent;cursor:pointe
 .fchip.fc-plan{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
 .fchip.fc-done{background:var(--done-soft);border-color:var(--done);color:var(--done);font-weight:700}
 .photo{margin-bottom:2px}
-.prow{display:flex;gap:10px;align-items:center}
-.thumb{width:96px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:none;background:var(--bg)}
+.prow{display:flex;gap:8px;align-items:center}
+.thumb{width:84px;height:68px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;flex:none;background:var(--bg)}
 .pinfo{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .ptime{font-size:13px;font-weight:700;color:var(--accent)}
 .pbtn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer}
 .pbtn.del{color:var(--danger);border-color:var(--danger)}
+.pbtns{display:flex;gap:4px;flex-wrap:wrap}
+.pinfo .pbtn{padding:7px 7px;font-size:12.5px;white-space:nowrap}
+.pbig2{display:flex;gap:8px}
+.pbig2 .pbtn.big{flex:1;min-width:0;white-space:nowrap}
 .pbtn.big{width:100%;padding:11px;font-size:15px;border-style:dashed;color:var(--accent);font-weight:600}
 .pbtn:disabled{opacity:.6}
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:70;display:flex;flex-direction:column}
@@ -601,9 +605,9 @@ async function cleanupOldDays() {
     catch (e) { /* 消せなくても次回また試す */ }
 }
 function PhotoField({ photo, date, onSave, onView }) {
-    const inp = useRef(null);
+    const cam = useRef(null), lib = useRef(null); // cam：カメラで撮る / lib：スマホの中の画像から選ぶ
     const [busy, setBusy] = useState(false), [err, setErr] = useState("");
-    const pick = async (e) => {
+    const pick = fromLib => async (e) => {
         const file = e.target.files && e.target.files[0];
         e.target.value = "";
         if (!file)
@@ -612,8 +616,12 @@ function PhotoField({ photo, date, onSave, onView }) {
         setErr("");
         try {
             const img = await compressImage(file);
-            const t = file.lastModified && Date.now() - file.lastModified < 7 * 86400000 ? file.lastModified : Date.now();
-            await onSave({ img, at: fmtShot(t, date) });
+            // 時刻：カメラはその場の時刻。画像から選んだときは、2日以内に撮られた画像ならその時刻、古い画像は登録した時刻
+            const lm = file.lastModified, recent = lm && Date.now() - lm < 2 * 86400000;
+            const at = !fromLib ? fmtShot(Date.now(), date) + " 撮影"
+                : recent ? fmtShot(lm, date) + " 撮影"
+                    : fmtShot(Date.now(), date) + " 登録";
+            await onSave({ img, at });
         }
         catch (x) {
             setErr("保存できませんでした（" + (x.code || x.message || "不明") + "）");
@@ -634,20 +642,25 @@ function PhotoField({ photo, date, onSave, onView }) {
         }
         setBusy(false);
     };
+    // 以前の写真は時刻だけが保存されているので「撮影」を付けて表示する
+    const label = a => /撮影|登録/.test(a || "") ? a : `${a} 撮影`;
     return React.createElement("div", { className: "photo" },
-        React.createElement("input", { ref: inp, type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: pick }),
+        React.createElement("input", { ref: cam, type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: pick(false) }),
+        React.createElement("input", { ref: lib, type: "file", accept: "image/*", style: { display: "none" }, onChange: pick(true) }),
         photo && photo.img
             ? React.createElement("div", { className: "prow" },
-                React.createElement("img", { className: "thumb", src: photo.img, alt: "\u7269\u91CF\u306E\u5199\u771F", onClick: () => onView(photo) }),
+                React.createElement("img", { className: "thumb", src: photo.img, alt: "\u7269\u91CF\u306E\u5199\u771F", onClick: () => onView({ ...photo, at: label(photo.at) }) }),
                 React.createElement("div", { className: "pinfo" },
                     React.createElement("div", { className: "ptime" },
                         "\uD83D\uDCF7 ",
-                        photo.at,
-                        " \u64AE\u5F71"),
-                    React.createElement("div", { className: "row", style: { gap: 6 } },
-                        React.createElement("button", { className: "pbtn", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "撮り直す"),
+                        label(photo.at)),
+                    React.createElement("div", { className: "pbtns" },
+                        React.createElement("button", { className: "pbtn", disabled: busy, onClick: () => cam.current.click() }, busy ? "保存中…" : "撮り直す"),
+                        React.createElement("button", { className: "pbtn", disabled: busy, onClick: () => lib.current.click() }, "\u753B\u50CF\u304B\u3089"),
                         React.createElement("button", { className: "pbtn del", disabled: busy, onClick: remove }, "\u524A\u9664"))))
-            : React.createElement("button", { className: "pbtn big", disabled: busy, onClick: () => inp.current.click() }, busy ? "保存中…" : "📷 写真を撮る"),
+            : React.createElement("div", { className: "pbig2" },
+                React.createElement("button", { className: "pbtn big", disabled: busy, onClick: () => cam.current.click() }, busy ? "保存中…" : "📷 写真を撮る"),
+                React.createElement("button", { className: "pbtn big", disabled: busy, onClick: () => lib.current.click() }, "\uD83D\uDDBC \u753B\u50CF\u3092\u9078\u3076")),
         err && React.createElement("div", { className: "err" }, err));
 }
 function Warehouse({ data, patch, slot, date, half, photos, savePhoto, onView }) {
@@ -968,8 +981,7 @@ function Board({ user }) {
             React.createElement("div", { className: "vbar" },
                 React.createElement("span", null,
                     "\uD83D\uDCF7 ",
-                    viewPhoto.at,
-                    " \u64AE\u5F71"),
+                    viewPhoto.at),
                 React.createElement("button", { onClick: () => setViewPhoto(null) }, "\u2715 \u9589\u3058\u308B")),
             React.createElement("img", { src: viewPhoto.img, alt: "\u7269\u91CF\u306E\u5199\u771F", onClick: e => e.stopPropagation() })),
         askHome && data && (() => {
